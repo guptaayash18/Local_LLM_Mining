@@ -75,10 +75,10 @@ your local model from the hosted page:
    npm run start:with-pages
    ```
 
-   That is `npm start` plus `--allow-origin https://vin1764.github.io`. For a
+   That is `npm start` plus `--allow-origin https://guptaayash18.github.io`. For a
    fork, or for `npm run dev`, set `CORS_ALLOWED_ORIGINS=https://<user>.github.io`
    in `.env` instead.
-3. Open https://vin1764.github.io/Local_Mining_LLM/ in **Chrome or Edge**. If the
+3. Open https://guptaayash18.github.io/Local_LLM_Mining/ in **Chrome or Edge**. If the
    browser asks to let the site access devices on your local network, allow it.
    The badge then shows `LOCAL AI · QWEN2.5:1.5B`.
 
@@ -185,7 +185,7 @@ Stop the app with `Ctrl+C`.
 | `npm run dev` | Dev server with hot reload on http://127.0.0.1:8080 |
 | `npm run build` | Production build into `.output/` |
 | `npm start` | Run the production build on http://127.0.0.1:8080 |
-| `npm run start:with-pages` | Same, and let https://vin1764.github.io use this computer's local AI |
+| `npm run start:with-pages` | Same, and let https://guptaayash18.github.io use this computer's local AI |
 | `npm run build:pages` | Static GitHub Pages build into `dist-pages/` |
 | `npm run doctor` | Check Node, dependencies, build, Ollama and the model (`-- --infer` also runs a test prompt) |
 | `npm run setup:model` | `ollama pull qwen2.5:1.5b` |
@@ -208,7 +208,7 @@ All settings are optional environment variables. Put them in `.env` (see
 | `HOST` | `127.0.0.1` | App listen address. Keep loopback. |
 | `PORT` | `8080` | App port. Saved runs belong to this exact address. |
 | `ALLOWED_HOSTS` | unset | Extra host names the app accepts (comma-separated). |
-| `CORS_ALLOWED_ORIGINS` | unset | Exact web origins allowed to call the local AI API, e.g. `https://vin1764.github.io` (comma-separated, no wildcard). |
+| `CORS_ALLOWED_ORIGINS` | unset | Exact web origins allowed to call the local AI API, e.g. `https://guptaayash18.github.io` (comma-separated, no wildcard). |
 | `VITE_LOCAL_AI_URL` | `http://127.0.0.1:8080` | Pages build only: where the hosted page looks for the local app. |
 
 No API keys are needed. `LOVABLE_API_KEY` is no longer used.

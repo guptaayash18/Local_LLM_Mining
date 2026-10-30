@@ -7,7 +7,7 @@ on your own device. No cloud AI is used.
 It comes in two editions:
 
 - **Local app:** run it on your computer with Ollama. It works fully offline.
-- **Web edition:** https://vin1764.github.io/Local_Mining_LLM/ (deployed by
+- **Web edition:** https://guptaayash18.github.io/Local_LLM_Mining/ (deployed by
   `.github/workflows/pages.yml`). Its AI uses the local app on your computer
   when you start it with `npm run start:with-pages`. Otherwise you can choose
   the in-browser model (about 1 GB download, Chrome or Edge with WebGPU).
