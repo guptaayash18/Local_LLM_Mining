@@ -15,6 +15,7 @@ import {
   clearSiteFile,
   getActiveConfig,
   reloadActiveConfig,
+  setStarterThresholds,
 } from "@/lib/safety/store";
 import { canConvert, convert } from "@/lib/safety/units";
 import { TEST_VERIFICATION, siteFile } from "./fixtures";
@@ -364,10 +365,20 @@ describe("stored site file (local persistence)", () => {
     delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 
-  it("uses the built-in rules when no site file was imported", () => {
+  it("uses the bundled starter thresholds when no site file was imported", () => {
+    const a = getActiveConfig();
+    expect(a.site?.bundled).toBe(true);
+    expect(a.siteError).toBeNull();
+    expect(a.config.rules.filter((r) => r.enabled).length).toBeGreaterThan(0);
+  });
+
+  it("uses only the built-in rules when the starter thresholds are switched off", () => {
+    setStarterThresholds(false);
     const a = getActiveConfig();
     expect(a.site).toBeNull();
-    expect(a.config.rules.filter((r) => r.enabled).length).toBeGreaterThan(0);
+    expect(a.config).toBe(base);
+    setStarterThresholds(true);
+    expect(getActiveConfig().site?.bundled).toBe(true);
   });
 
   it("an invalid file never replaces the active rules", () => {
@@ -388,7 +399,7 @@ describe("stored site file (local persistence)", () => {
     // The export is itself a valid replace file.
     expect(previewSiteFile(JSON.stringify(exported), base).ok).toBe(true);
     clearSiteFile();
-    expect(getActiveConfig().site).toBeNull();
+    expect(getActiveConfig().site?.bundled).toBe(true);
     expect(Object.values(store)).toHaveLength(0);
   });
 
@@ -396,8 +407,9 @@ describe("stored site file (local persistence)", () => {
     store["strata-site-thresholds-v2"] = file([rule({ unit: "°C" })]);
     reloadActiveConfig();
     const a = getActiveConfig();
-    expect(a.site).toBeNull();
-    expect(a.config).toBe(base);
+    expect(a.site?.bundled).toBe(true);
     expect(a.siteError).toMatch(/no longer valid.*cannot be converted/);
+    setStarterThresholds(false);
+    expect(getActiveConfig().config).toBe(base);
   });
 });

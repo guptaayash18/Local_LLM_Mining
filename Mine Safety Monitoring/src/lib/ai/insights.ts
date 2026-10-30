@@ -108,6 +108,20 @@ const safetySchema = z.object({
   unverifiedRequired: z.array(shortText).max(40),
   unassessedParameters: z.array(shortText).max(50),
   configName: text(400),
+  // Optional so profiles from an older page build still validate.
+  parameterGuide: z
+    .array(
+      z.object({
+        name: shortText,
+        unit: shortText,
+        type: z.enum(["number", "boolean"]),
+        description: text(200).nullable(),
+        guidance: text(600).nullable(),
+        normalRange: z.tuple([nullableFinite, nullableFinite]).nullable(),
+      }),
+    )
+    .max(60)
+    .default([]),
   officialCopyCaveat: z.boolean(),
 });
 
@@ -342,7 +356,7 @@ export function buildFactsSheet(profile: DatasetProfile): string {
     let ma = "";
     if (c.movingAvg1h !== undefined && c.last !== undefined) {
       const diff = c.last - c.movingAvg1h;
-      ma = ` Latest ${withUnit(c.last, c.unit)}; 1-hour moving average ${withUnit(c.movingAvg1h, c.unit)} over ${c.movingAvg1hCount ?? "?"} reading(s); latest is ${diff === 0 ? "equal to" : `${num(Math.abs(diff))} ${diff > 0 ? "above" : "below"}`} it.`;
+      ma = ` Latest ${withUnit(c.last, c.unit)}; 1-hour moving average ${withUnit(c.movingAvg1h, c.unit)} (${c.movingAvg1hCount ?? "?"} readings); latest ${diff === 0 ? "equal to it" : `${num(Math.abs(diff))} ${diff > 0 ? "above" : "below"} it`}.`;
     }
     lines.push(
       `- ${c.name} (${unit}): ${dir}. ${describeColumn(c, profile)}${ma}`,

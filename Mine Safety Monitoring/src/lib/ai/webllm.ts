@@ -22,7 +22,11 @@ import {
   gpuSupportsF16,
   webGpuAvailable,
 } from "./webllm-progress";
-import { WEBLLM_MODEL } from "./webllm-model";
+import {
+  WEBLLM_CONTEXT_TOKENS,
+  WEBLLM_LITE_MODEL,
+  WEBLLM_MODEL,
+} from "./webllm-model";
 
 export { WEBLLM_MODEL };
 
@@ -35,9 +39,26 @@ let resolvedModel: string | null = null;
  * The configured model, or its 32-bit-float build when the GPU cannot run
  * 16-bit shaders (same weights, a little larger).
  */
+/** A phone or tablet with under 8 GB of memory (Chrome reports at most 8). */
+export function isLowMemoryMobile(): boolean {
+  const nav = globalThis.navigator as
+    | (Navigator & {
+        deviceMemory?: number;
+        userAgentData?: { mobile?: boolean };
+      })
+    | undefined;
+  if (!nav) return false;
+  const mobile =
+    nav.userAgentData?.mobile ??
+    /Android|iPhone|iPad|Mobile/i.test(nav.userAgent);
+  return mobile && typeof nav.deviceMemory === "number" && nav.deviceMemory < 8;
+}
+
 export async function resolveModelId(): Promise<string> {
   if (resolvedModel) return resolvedModel;
-  let id = WEBLLM_MODEL;
+  let id = isLowMemoryMobile() ? WEBLLM_LITE_MODEL : WEBLLM_MODEL;
+  if (!prebuiltAppConfig.model_list.some((m) => m.model_id === id))
+    id = WEBLLM_MODEL;
   if (id.includes("q4f16_1") && !(await gpuSupportsF16())) {
     const alt = id.replace("q4f16_1", "q4f32_1");
     if (prebuiltAppConfig.model_list.some((m) => m.model_id === alt)) id = alt;
@@ -68,9 +89,15 @@ function loadEngine(modelId: string): Promise<WebWorkerMLCEngine> {
     const worker = new Worker(new URL("./webllm.worker.ts", import.meta.url), {
       type: "module",
     });
-    enginePromise = CreateWebWorkerMLCEngine(worker, modelId, {
-      initProgressCallback: (r) => emit({ text: r.text, progress: r.progress }),
-    })
+    enginePromise = CreateWebWorkerMLCEngine(
+      worker,
+      modelId,
+      {
+        initProgressCallback: (r) =>
+          emit({ text: r.text, progress: r.progress }),
+      },
+      { context_window_size: WEBLLM_CONTEXT_TOKENS },
+    )
       .then((e) => {
         engine = e;
         emit(null);
@@ -98,8 +125,8 @@ function describeLoadError(error: unknown): LocalAiError {
   if (/memory|OOM|device lost|out of/i.test(msg)) {
     return new LocalAiError(
       "runtime_error",
-      "Your graphics card ran out of memory while loading the model.",
-      "Close other GPU-heavy tabs or apps and retry, or use a computer with a stronger GPU.",
+      "The device ran out of graphics memory while loading the model.",
+      "Close other tabs and apps and retry. On a phone, restart Chrome first. If it keeps failing, use the local app on a computer (npm start + Ollama).",
     );
   }
   return new LocalAiError(
@@ -131,7 +158,7 @@ export class WebLlmProvider implements LocalInferenceProvider {
         unsupported: true,
         message:
           "This browser cannot run the AI model (WebGPU is not available).",
-        hint: "Open this page in a recent Chrome or Edge on a desktop or laptop. Charts and statistics still work here.",
+        hint: "Open this page in a recent Chrome or Edge (desktop, laptop, or Chrome on Android 12+). Charts, statistics and the safety rules still work here.",
       };
     }
     const modelId = await resolveModelId();
@@ -170,7 +197,7 @@ export class WebLlmProvider implements LocalInferenceProvider {
       throw new LocalAiError(
         "unsupported",
         "This browser cannot run the AI model (WebGPU is not available).",
-        "Open this page in a recent Chrome or Edge on a desktop or laptop.",
+        "Open this page in a recent Chrome or Edge (desktop, laptop, or Chrome on Android 12+).",
       );
     }
     const started = Date.now();

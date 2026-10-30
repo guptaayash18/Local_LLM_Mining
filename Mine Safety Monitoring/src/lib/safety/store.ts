@@ -6,6 +6,8 @@
  */
 import { useSyncExternalStore } from "react";
 
+import starterThresholds from "@/config/site-thresholds.json";
+
 import {
   builtinConfig,
   previewSiteFile,
@@ -14,6 +16,15 @@ import {
 } from "./config";
 
 const KEY = "strata-site-thresholds-v2";
+/** Set when the person switched the bundled starter thresholds off. */
+const OFF_KEY = "strata-starter-thresholds-off";
+
+/**
+ * The bundled starter thresholds (src/config/site-thresholds.json, easy
+ * format). Applied when no other site file was loaded in this browser. Edit
+ * that file to change the defaults for everyone using this build.
+ */
+export const STARTER_TEXT = JSON.stringify(starterThresholds);
 
 export interface ActiveConfig {
   config: RulesConfig;
@@ -21,6 +32,8 @@ export interface ActiveConfig {
   source: string;
   site: null | {
     fileName: string;
+    /** True when this is the bundled starter file, not one loaded in this browser. */
+    bundled: boolean;
     policy: MergePreview["policy"];
     added: string[];
     replaced: string[];
@@ -31,47 +44,63 @@ export interface ActiveConfig {
   siteError: string | null;
 }
 
-function readStored(): string | null {
+function readStored(key = KEY): string | null {
   try {
-    return globalThis.localStorage?.getItem(KEY) ?? null;
+    return globalThis.localStorage?.getItem(key) ?? null;
   } catch {
     return null;
   }
 }
 
+export function starterThresholdsOff(): boolean {
+  return readStored(OFF_KEY) === "1";
+}
+
+function withSite(
+  base: RulesConfig,
+  text: string,
+  bundled: boolean,
+): ActiveConfig | { error: string } {
+  const res = previewSiteFile(text, base);
+  if (!res.ok) return { error: res.errors[0] ?? "invalid file" };
+  const { policy, added, replaced, kept, removed, result } = res.preview;
+  return {
+    config: result,
+    source: bundled
+      ? `built-in CMR 2017 rules + starter thresholds "${res.fileName}"`
+      : `built-in CMR 2017 rules + site file "${res.fileName}" (${policy})`,
+    site: {
+      fileName: res.fileName,
+      bundled,
+      policy,
+      added,
+      replaced,
+      kept,
+      removed,
+    },
+    siteError: null,
+  };
+}
+
 function compute(): ActiveConfig {
   const base = builtinConfig();
   const text = readStored();
+  let siteError: string | null = null;
   if (text) {
-    const res = previewSiteFile(text, base);
-    if (res.ok) {
-      const { policy, added, replaced, kept, removed, result } = res.preview;
-      return {
-        config: result,
-        source: `built-in CMR 2017 rules + site file "${res.fileName}" (${policy})`,
-        site: {
-          fileName: res.fileName,
-          policy,
-          added,
-          replaced,
-          kept,
-          removed,
-        },
-        siteError: null,
-      };
-    }
-    return {
-      config: base,
-      source: "built-in CMR 2017 rules",
-      site: null,
-      siteError: `The saved site thresholds file is no longer valid and was ignored: ${res.errors[0]}`,
-    };
+    const res = withSite(base, text, false);
+    if (!("error" in res)) return res;
+    siteError = `The saved site thresholds file is no longer valid and was ignored: ${res.error}`;
+  }
+  if (!starterThresholdsOff()) {
+    const res = withSite(base, STARTER_TEXT, true);
+    if (!("error" in res)) return { ...res, siteError };
+    siteError ??= `The bundled starter thresholds are invalid and were ignored: ${res.error}`;
   }
   return {
     config: base,
     source: "built-in CMR 2017 rules",
     site: null,
-    siteError: null,
+    siteError,
   };
 }
 
@@ -95,7 +124,7 @@ export function reloadActiveConfig() {
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key === KEY || e.key === null) changed();
+    if (e.key === KEY || e.key === OFF_KEY || e.key === null) changed();
   });
 }
 
@@ -126,6 +155,22 @@ export function clearSiteFile() {
   changed();
 }
 
+/** Switch the bundled starter thresholds on or off in this browser. */
+export function setStarterThresholds(on: boolean) {
+  try {
+    if (on) globalThis.localStorage?.removeItem(OFF_KEY);
+    else globalThis.localStorage?.setItem(OFF_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  changed();
+}
+
+/** The bundled starter thresholds file, pretty-printed (a template to edit). */
+export function starterThresholdsJson(): string {
+  return JSON.stringify(starterThresholds, null, 2);
+}
+
 /** The active rules as a JSON file, usable as a template for a site file. */
 export function activeConfigJson(): string {
   const { config } = getActiveConfig();
@@ -144,12 +189,10 @@ export function activeConfigJson(): string {
   );
 }
 
-const SERVER_SNAPSHOT: ActiveConfig = {
-  config: builtinConfig(),
-  source: "built-in CMR 2017 rules",
-  site: null,
-  siteError: null,
-};
+// No browser storage on the server, so this is the default: built-in rules
+// plus the bundled starter thresholds (same as a fresh browser).
+let serverSnapshot: ActiveConfig | null = null;
+const getServerSnapshot = () => (serverSnapshot ??= compute());
 
 export function useActiveConfig(): ActiveConfig {
   return useSyncExternalStore(
@@ -158,6 +201,6 @@ export function useActiveConfig(): ActiveConfig {
       return () => listeners.delete(cb);
     },
     getActiveConfig,
-    () => SERVER_SNAPSHOT,
+    getServerSnapshot,
   );
 }

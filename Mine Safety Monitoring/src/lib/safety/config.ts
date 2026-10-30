@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import builtinJson from "@/config/safety-rules.json";
 import { UNITS, canConvert, convert } from "./units";
+import { isSimpleFormat, simpleToFullConfig } from "./simple";
 
 const finite = z.number().finite();
 const unit = z.enum(UNITS);
@@ -57,6 +58,10 @@ const parameterSchema = z.object({
   unit,
   type: z.enum(["number", "boolean"]),
   description: z.string().max(200).optional(),
+  /** Plain-language meaning: what the reading tells you and what to do. Shown in the parameter guide and given to the AI. */
+  guidance: z.string().max(600).optional(),
+  /** Typical range in normal operation [low, high] (null = open-ended). Information only: rules decide the status. */
+  normalRange: z.tuple([finite.nullable(), finite.nullable()]).optional(),
   min: finite.optional(),
   max: finite.optional(),
 });
@@ -382,6 +387,38 @@ export function validateConfig(
   return { ok: true, config: cfg, warnings };
 }
 
+/**
+ * Parse a site file in either format: the full rule format (schemaVersion 1)
+ * or the easy per-parameter format ("format": "strata-simple-v1", see
+ * ./simple.ts), which is converted to the full format first.
+ */
+export function parseAnyConfigText(
+  text: string,
+  base: RulesConfig,
+): ValidationResult {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    return {
+      ok: false,
+      errors: [
+        `Not valid JSON: ${e instanceof Error ? e.message : "parse error"}.`,
+      ],
+      warnings: [],
+    };
+  }
+  if (isSimpleFormat(json)) {
+    const conv = simpleToFullConfig(json, base);
+    if (!conv.ok) return { ok: false, errors: conv.errors, warnings: [] };
+    const res = validateConfig(conv.config, base.parameters);
+    return res.ok
+      ? { ...res, warnings: [...conv.notes, ...res.warnings] }
+      : res;
+  }
+  return validateConfig(json, base.parameters);
+}
+
 /** Parse JSON text, then validate it. */
 export function parseConfigText(
   text: string,
@@ -465,7 +502,18 @@ export function mergeSiteConfig(
   site: z.output<typeof configSchema>,
 ): MergePreview {
   const policy = site.mergePolicy ?? "merge";
-  const params = [...base.parameters];
+  // A site file may add fields, and may update the description, guidance and
+  // normal range of a known field (never its unit, type or valid range).
+  const params = base.parameters.map((q) => {
+    const s = site.parameters.find((p) => p.name === q.name);
+    if (!s) return q;
+    return {
+      ...q,
+      ...(s.description !== undefined ? { description: s.description } : {}),
+      ...(s.guidance !== undefined ? { guidance: s.guidance } : {}),
+      ...(s.normalRange !== undefined ? { normalRange: s.normalRange } : {}),
+    };
+  });
   for (const p of site.parameters)
     if (!params.some((q) => q.name === p.name)) params.push(p);
   const siteIds = new Set(site.rules.map((r) => r.id));
@@ -528,7 +576,7 @@ export function previewSiteFile(
 ):
   | { ok: true; preview: MergePreview; warnings: string[]; fileName: string }
   | { ok: false; errors: string[]; warnings: string[] } {
-  const res = parseConfigText(text, base.parameters);
+  const res = parseAnyConfigText(text, base);
   if (!res.ok) return res;
   const preview = mergeSiteConfig(base, res.config);
   const errors: string[] = [];

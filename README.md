@@ -12,16 +12,21 @@ It comes in two editions:
   when you start it with `npm run start:with-pages`. Otherwise you can choose
   the in-browser model (about 1 GB download, Chrome or Edge with WebGPU).
 
-Every analysis starts with a rule-based safety status (SAFE, CAUTION, UNSAFE or
-INSUFFICIENT DATA). No safety thresholds are shipped: add your site's verified
-limits first, or every analysis is INSUFFICIENT DATA. Charts show a 1-hour
-moving average.
+Every analysis starts with a rule-based safety status (SAFE, CAUTION or
+UNSAFE) from the Coal Mines Regulations 2017 rules. A **parameter guide**
+explains all 18 sensor columns with their normal range and warning/critical
+levels, set in one easy file:
+[`Mine Safety Monitoring/src/config/site-thresholds.json`](./Mine%20Safety%20Monitoring/src/config/site-thresholds.json).
+Those starter levels are provisional (CAUTION at most) until you verify them
+against your site standard. Charts show a 1-hour moving average. Tuned for
+8 GB RAM; see the app README, section 3a.
 
 The app is in [`Mine Safety Monitoring/`](./Mine%20Safety%20Monitoring). See its
 [README](./Mine%20Safety%20Monitoring/README.md) for setup (Windows PowerShell
 first), configuration, changing the model, and test results.
 
-Quick start:
+Quick start on Windows: double-click
+`Mine Safety Monitoring/start-windows.bat`. Or by hand:
 
 ```powershell
 ollama pull qwen2.5:1.5b

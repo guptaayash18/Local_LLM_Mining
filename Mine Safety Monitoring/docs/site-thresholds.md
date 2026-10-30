@@ -16,6 +16,86 @@ An invalid file is rejected with the reasons and never replaces the active
 rules. If a file saved earlier stops validating (for example after an app
 update), it is ignored and the panel says so.
 
+## Easy format
+
+The quickest way to set limits is the easy format: one entry per CSV column.
+The bundled **`src/config/site-thresholds.json`** uses it and is applied by
+default (switch it off with **TURN OFF STARTER THRESHOLDS**; a file you load
+in the browser takes its place).
+
+```json
+{
+  "format": "strata-simple-v1",
+  "name": "Mine X thresholds rev 1",
+  "mine": { "degreeOfGassiness": 2, "samplingIntervalSeconds": 60 },
+  "parameters": {
+    "CO_ppm": {
+      "description": "Carbon monoxide",
+      "meaning": "What the reading tells you and what to do (shown in the guide and given to the AI).",
+      "normal": [0, 10],
+      "warning": 35,
+      "critical": 200,
+      "worseWhen": "higher",
+      "source": "Where the numbers come from"
+    },
+    "O2_vol_pct": { "description": "Oxygen", "normal": [19.5, 20.95], "warning": 19.5, "critical": 19, "worseWhen": "lower" },
+    "YOLO_Flame_Detected": { "description": "Flame seen by camera", "worseWhen": "detected" },
+    "Barometric_Pressure_kPa": { "description": "Barometric pressure", "normal": [95, 106], "worseWhen": "watch" }
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `description` | Short name shown in the guide (required). |
+| `meaning` | One or two sentences: what the sensor tells you, what to do. |
+| `normal` | `[low, high]` typical range in normal operation. Information only; use `null` for an open end. |
+| `warning`, `critical` | Levels that raise a warning / critical result. Either can be left out. |
+| `worseWhen` | `higher` (default), `lower`, `detected` (yes/no columns) or `watch` (describe only, no check). |
+| `includeLimit` | `true` to count a reading equal to the limit (≥ / ≤ instead of > / <). |
+| `unit` | Needed only for a new column; otherwise the column's own unit. |
+| `source` | Where the numbers come from (shown in the rule table). |
+| `enabled` | `false` to keep the entry but not check it. |
+| `verified` | `{ "document", "clause"?, "checkedBy", "checkedOn" }`, only after checking the numbers against your approved standard. Makes the rule **verified_site**, so a critical breach gives UNSAFE. |
+
+How it is applied:
+
+- Without `verified`, every check is **provisional**: CAUTION at most, never
+  UNSAFE, and never SAFE by itself (CO stays a required check).
+- Numbers equal to a verified regulation rule (for example methane 0.8 / 1.25)
+  are not added twice; different numbers become an extra check. A verified
+  rule is never replaced or weakened.
+- An entry takes over the built-in placeholder for its column (for example
+  `co-site-limit`), so the rule table stays tidy.
+- Mistakes are explained in the preview (unknown field, wrong order of warning
+  and critical, a missing unit for a new column, a misspelled key).
+
+### Starter values (src/config/site-thresholds.json)
+
+| Column | Normal | Warning | Critical | Basis |
+| --- | --- | --- | --- | --- |
+| CO_ppm | 0-10 | > 35 | > 200 | NIOSH REL 35 ppm TWA, 200 ppm ceiling (IDLH 1200) |
+| CH4_vol_pct | 0-0.5 | > 0.8 | > 1.25 | CMR 2017 Reg. 153(2)(c), 169 (verified rule) |
+| O2_vol_pct | 19.5-20.95 | < 19.5 | < 19 | MSHA 30 CFR 75.321 (19.5); CMR Reg. 153(2)(b) (19, verified) |
+| CO2_vol_pct | 0.03-0.25 | — | > 0.5 | CMR Reg. 153(2)(b) (verified rule) |
+| H2_ppm | 0-10 | > 4000 | > 10000 | 10 % / 25 % of LEL (4 % vol) |
+| C2H4_ppm | 0 | > 0 | — | CIMFR fire-gas progression |
+| C2H2_ppm | 0 | > 0 | > 0.5 | CIMFR fire-gas progression; 0.5 starting value |
+| Coal_Seam_Temp_C | 20-40 | > 50 | > 70 | Self-heating runaway from 70-80 °C (NIOSH); 50 starting value |
+| Airway_Temp_C | 20-30 | > 30.5 | > 33.5 | CMR Reg. 153(2)(d) wet-bulb limits, applied to dry-bulb (conservative) |
+| Thermal_IR_Max_C | 15-45 | > 70 | > 150 | IEC 60079-0 Group I 150 °C surface limit |
+| Air_Velocity_m_s | 0.5-4 | < 1 | < 0.5 | CMR Reg. 153(2)(d) (1 m/s), Reg. 160 (30 m/min) |
+| Barometric_Pressure_kPa | 95-106 | watch | watch | CMR Reg. 46(1)(o): report unusual change |
+| Smoke_Obscuration_pct | 0-1 | > 2 | > 10 | Starting values; use your sensor's alarm settings |
+| Grahams_Ratio | 0-0.4 | ≥ 0.5 | ≥ 1 | CIMFR thumb rule (Ray et al. 2004) |
+| Trickett_Ratio | 0.4-1.6 | > 1.6 | — | CIMFR fuel ranges; above 1.6 = suspect sample |
+| Explosion_Risk_Index | 0 | ≥ 1 | ≥ 2 | ASSUMED 0/1/2 scale; confirm with your system |
+| YOLO_Flame/Smoke_Detected | not detected | — | detected | CMR Reg. 138(1) (verified rules) |
+
+These are starting points from published references, not your mine's
+approved limits. Check each against your site standard, DGMS circulars and
+the sensor makers' alarm settings before relying on them.
+
 ## Merge policy
 
 | `mergePolicy` | Effect |

@@ -15,6 +15,7 @@
  *
  * The evaluation window is (newest timestamp − evaluationWindowMinutes, newest].
  */
+import { formatReading } from "./format";
 import type { Dataset } from "@/lib/dataset";
 import {
   medianSamplingIntervalMs,
@@ -100,6 +101,15 @@ export interface DataQualityWarning {
   blocksSafe: boolean;
 }
 
+export interface ParameterGuideEntry {
+  name: string;
+  unit: string;
+  type: "number" | "boolean";
+  description: string | null;
+  guidance: string | null;
+  normalRange: [number | null, number | null] | null;
+}
+
 export interface SafetyAssessment {
   status: SafetyStatus;
   /** Why the status was chosen, most important first. */
@@ -129,6 +139,8 @@ export interface SafetyAssessment {
   /** Data fields that no rule checked. */
   unassessedParameters: string[];
   configName: string;
+  /** Plain-language description and normal range of each field in this file (from the rules file). */
+  parameterGuide: ParameterGuideEntry[];
   /** Some verified rules were checked against an unofficial copy of the source. */
   officialCopyCaveat: boolean;
 }
@@ -731,10 +743,26 @@ export function assessSafety(
 
   // ---- Next actions -----------------------------------------------------
   const actions: string[] = [];
+  // Provisional findings come after verified ones and data checks, so the
+  // list (capped at 10) never hides a regulatory action.
+  const provisionalActions: string[] = [];
   for (const e of evaluations) {
     if (e.result === "critical" && e.operator === "is_true") {
       actions.push(
         `Treat ${e.parameter} as a possible fire (${e.sourceClause.split(":")[0]}): follow the site fire procedure, withdraw persons as required, and have a competent person confirm.`,
+      );
+    } else if (
+      (e.result === "critical" || e.result === "warning") &&
+      e.verificationStatus === "provisional"
+    ) {
+      const limit = formatReading(
+        e.result === "critical" ? e.critical : e.warning,
+        e.unit,
+      );
+      provisionalActions.push(
+        e.result === "critical"
+          ? `Check ${e.parameter} urgently: it is past the provisional critical level (${limit}). Confirm with an independent instrument and follow the site procedure.`
+          : `Increase monitoring of ${e.parameter}: it is past the provisional warning level (${limit}).`,
       );
     } else if (e.result === "critical") {
       actions.push(
@@ -802,7 +830,7 @@ export function assessSafety(
     reasons,
     evaluations,
     dataQuality: quality,
-    nextActions: [...new Set(actions)].slice(0, 10),
+    nextActions: [...new Set([...actions, ...provisionalActions])].slice(0, 10),
     triggeredRuleIds: evaluations
       .filter((e) => e.result === "critical" || e.result === "warning")
       .map((e) => e.ruleId),
@@ -816,6 +844,20 @@ export function assessSafety(
     unverifiedRequired: [...new Set(unverifiedRequired)],
     unassessedParameters: presentFields.filter((f) => !checked.has(f)),
     configName: config.name,
+    parameterGuide: presentFields.flatMap((f) => {
+      const p = config.parameters.find((q) => q.name === f);
+      if (!p) return [];
+      return [
+        {
+          name: p.name,
+          unit: p.unit,
+          type: p.type,
+          description: p.description ?? null,
+          guidance: p.guidance ?? null,
+          normalRange: p.normalRange ?? null,
+        },
+      ];
+    }),
     officialCopyCaveat,
   };
 }
@@ -857,5 +899,9 @@ export function compactAssessment(a: SafetyAssessment): SafetyAssessment {
       .map((q) => ({ ...q, message: clipText(q.message) })),
     nextActions: a.nextActions.slice(0, 8).map((n) => clipText(n)),
     unassessedParameters: a.unassessedParameters.slice(0, 30),
+    parameterGuide: (a.parameterGuide ?? []).slice(0, 40).map((g) => ({
+      ...g,
+      guidance: g.guidance ? clipText(g.guidance, 220) : null,
+    })),
   };
 }

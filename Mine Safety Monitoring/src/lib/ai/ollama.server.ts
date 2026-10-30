@@ -10,6 +10,22 @@ import {
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 const STATUS_TIMEOUT_MS = 4_000;
+/** Room left for the model's answer (the report is a few hundred tokens). */
+const ANSWER_TOKENS = 1_024;
+const MAX_AUTO_CTX = 16_384;
+
+/**
+ * The context window for one request: the configured size, raised (in steps
+ * of 1024) when the prompt would not fit. Ollama silently drops the start of
+ * an over-long prompt, which would remove the system instructions.
+ * Token count is estimated at 3 characters per token (numbers and units
+ * tokenize densely).
+ */
+export function contextFor(promptChars: number, configured: number): number {
+  const need = Math.ceil(promptChars / 3) + ANSWER_TOKENS;
+  if (need <= configured) return configured;
+  return Math.min(MAX_AUTO_CTX, Math.ceil(need / 1024) * 1024);
+}
 
 function setupHint(model: string) {
   return {
@@ -155,10 +171,15 @@ export class OllamaProvider implements LocalInferenceProvider {
           model: this.model,
           stream: false,
           format: request.jsonSchema,
-          keep_alive: "15m",
+          keep_alive: this.config.keepAlive,
           options: {
             temperature: this.config.temperature,
-            num_ctx: this.config.numCtx,
+            num_ctx: contextFor(
+              request.system.length +
+                request.prompt.length +
+                JSON.stringify(request.jsonSchema).length,
+              this.config.numCtx,
+            ),
           },
           messages: [
             { role: "system", content: request.system },

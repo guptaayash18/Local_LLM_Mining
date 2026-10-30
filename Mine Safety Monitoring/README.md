@@ -161,6 +161,14 @@ npm run doctor -- --infer
 
 ## 2. Daily use (works offline)
 
+**Windows, one click:** double-click **`start-windows.bat`** in this folder. It
+checks Node.js and Ollama, starts Ollama with low-memory settings if it is not
+running, downloads the model the first time, installs and builds the app, then
+opens <http://127.0.0.1:8080>. The GitHub Pages edition can use this local AI
+while the window is open. Close the window to stop.
+
+Or step by step:
+
 1. Make sure Ollama is running: open the Ollama app, or run `ollama serve`.
 2. Start STRATA:
 
@@ -187,7 +195,7 @@ Stop the app with `Ctrl+C`.
 | `npm start` | Run the production build on http://127.0.0.1:8080 |
 | `npm run start:with-pages` | Same, and let https://guptaayash18.github.io use this computer's local AI |
 | `npm run build:pages` | Static GitHub Pages build into `dist-pages/` |
-| `npm run doctor` | Check Node, dependencies, build, Ollama and the model (`-- --infer` also runs a test prompt) |
+| `npm run doctor` | Check Node, memory, dependencies, build, Ollama and the model (`-- --infer` also runs a test prompt) |
 | `npm run setup:model` | `ollama pull qwen2.5:1.5b` |
 | `npm test` | Unit tests (no Ollama needed) |
 
@@ -202,8 +210,9 @@ All settings are optional environment variables. Put them in `.env` (see
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama address. Only loopback addresses are accepted. |
 | `OLLAMA_MODEL` | `qwen2.5:1.5b` | Any model pulled into Ollama. |
 | `OLLAMA_TIMEOUT_MS` | `180000` | Max time for one model call. |
-| `OLLAMA_NUM_CTX` | `8192` | Context window passed to the model. |
+| `OLLAMA_NUM_CTX` | `8192` | Context window passed to the model. Raised automatically for one request (up to 16384) if the prompt would not fit. |
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower is more literal. |
+| `OLLAMA_KEEP_ALIVE` | `5m` | How long the model stays in memory after an analysis (`0` = unload at once). |
 | `OLLAMA_ALLOW_NON_LOOPBACK` | unset | Set to `1` to allow Ollama on another machine on your own network. |
 | `HOST` | `127.0.0.1` | App listen address. Keep loopback. |
 | `PORT` | `8080` | App port. Saved runs belong to this exact address. |
@@ -212,6 +221,41 @@ All settings are optional environment variables. Put them in `.env` (see
 | `VITE_LOCAL_AI_URL` | `http://127.0.0.1:8080` | Pages build only: where the hosted page looks for the local app. |
 
 No API keys are needed. `LOVABLE_API_KEY` is no longer used.
+
+## 3a. Running on an 8 GB computer or phone
+
+The app is built for this. Measured with the 60-row, 18-parameter coal-mine
+file: the prompt is about 5 000 tokens, and Qwen 2.5 1.5B uses about 1.5 GB of
+RAM while it writes the report.
+
+**Laptop / desktop (Ollama):**
+
+- Keep the default `qwen2.5:1.5b`. On 4 GB or a very slow CPU use
+  `qwen2.5:0.5b` (`ollama pull qwen2.5:0.5b`, then `OLLAMA_MODEL=qwen2.5:0.5b`).
+- The model is unloaded 5 minutes after the last analysis
+  (`OLLAMA_KEEP_ALIVE`; set `0` to free the memory at once).
+- Make Ollama use one request slot and a compact cache. `start-windows.bat`
+  sets these when it starts Ollama; to make them permanent (so the Ollama tray
+  app uses them too), run once in PowerShell, then quit and restart Ollama:
+
+  ```powershell
+  setx OLLAMA_NUM_PARALLEL 1
+  setx OLLAMA_MAX_LOADED_MODELS 1
+  setx OLLAMA_FLASH_ATTENTION 1
+  setx OLLAMA_KV_CACHE_TYPE q8_0
+  ```
+
+  `OLLAMA_NUM_PARALLEL=1` matters most: by default Ollama may reserve memory
+  for several requests at once.
+- Close heavy browser tabs before an analysis. `npm run doctor` reports free memory.
+
+**Phone (Google Pixel or other Android, Chrome):** open the GitHub Pages site
+and choose the in-browser model. It needs Chrome on Android 12+ with WebGPU.
+The first run downloads about 1 GB over Wi-Fi; after that it is cached.
+Phones that report less than 8 GB automatically get the smaller Qwen 2.5 0.5B
+build. The dashboard, statistics and safety rules work on any phone, even
+without the model. A phone cannot run Ollama for the local app; for that use a
+computer.
 
 ## 4. Changing the model
 
@@ -313,6 +357,34 @@ The regulation text was checked against a reproduction of the Gazette and an
 independent copy. The official DGMS copy and later amendments could not be
 checked; the panel says so under every assessment.
 
+### Starter thresholds for every sensor (easy format)
+
+**`src/config/site-thresholds.json`** gives each of the 18 sensor columns a
+plain description, what it means, a **normal range**, and **warning** and
+**critical** levels with their source. It is applied by default and shown in
+the **PARAMETER GUIDE** table under the safety status. Edit the numbers there
+(then rebuild, or just restart `start-windows.bat`), or download it with
+**DOWNLOAD EASY TEMPLATE**, edit, and load it with **LOAD SITE THRESHOLDS**.
+
+```json
+"CO_ppm": {
+  "description": "Carbon monoxide",
+  "meaning": "Earliest sign of a heating or fire …",
+  "normal": [0, 10],
+  "warning": 35,
+  "critical": 200,
+  "worseWhen": "higher",
+  "source": "NIOSH REL 35 ppm TWA; 200 ppm ceiling"
+}
+```
+
+These starter values are **provisional**: they can raise CAUTION but never
+UNSAFE, and they never weaken the verified CMR 2017 rules. When your site
+standard confirms a value, add a `verified` block (document, checkedBy,
+checkedOn) to make it a verified site rule. Full guide:
+[docs/site-thresholds.md](docs/site-thresholds.md#easy-format).
+**TURN OFF STARTER THRESHOLDS** goes back to the built-in rules only.
+
 ### Site thresholds (LOAD SITE THRESHOLDS (JSON))
 
 A site file adds or replaces rules and sets the degree of gassiness, the
@@ -382,6 +454,8 @@ Saved runs live in your browser's IndexedDB for the address
 | `No production build found` | Run `npm run build` before `npm start`. |
 | Saved runs disappeared | The browser's site data was cleared, or you opened a different address or port (see section 7). |
 | `node` is too old | Install Node.js 22.12 or newer. |
+| Computer slows down or the analysis is very slow (8 GB RAM) | See section 3a: `OLLAMA_NUM_PARALLEL=1`, close browser tabs, or use `qwen2.5:0.5b`. |
+| Phone says WebGPU is not available | Update Chrome; Android 12 or newer is needed. The dashboard and safety rules still work without the model. |
 
 ## 9. What changed in the migration
 

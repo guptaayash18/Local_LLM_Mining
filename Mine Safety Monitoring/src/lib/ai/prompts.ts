@@ -15,7 +15,8 @@ export const MINING_SYSTEM_PROMPT = [
   "Evidence rules:",
   "- Use only the FACTS sheet: measurements, configured thresholds, sensor names and units, timestamps and calculated analytics.",
   "- Never invent sensor readings, regulatory thresholds, mine conditions, units or causal explanations.",
-  "- Name parameters exactly as written (for example methane_pct). Do not guess what abbreviations stand for.",
+  "- Name parameters exactly as written (for example methane_pct). Use the meaning given in the sensor list; if none is given, do not guess what an abbreviation stands for.",
+  "- A NORMAL range describes typical operation only. Being outside it is worth mentioning, but only the SAFETY ASSESSMENT decides warnings and breaches.",
   "- Keep units and timestamps when you quote a number. Only outliers and threshold checks have dates.",
   "- Copy trend directions exactly: if FACTS says a parameter ROSE, never say it fell, and the reverse.",
   "- State measured facts plainly. Mark possible explanations as hypotheses ('may', 'possibly', 'could').",
@@ -45,6 +46,9 @@ const fmt = (v: number | boolean | null | undefined, unit: string) => {
   return `${Number(v.toPrecision(6))}${unit && unit !== "ratio" && unit !== "index" && unit !== "boolean" ? ` ${unit}` : ""}`;
 };
 
+const clip = (t: string, n: number) =>
+  t.length > n ? `${t.slice(0, n - 1)}…` : t;
+
 const VERIFICATION_TEXT: Record<string, string> = {
   verified_regulatory: "VERIFIED REGULATORY",
   verified_site: "VERIFIED SITE",
@@ -70,16 +74,67 @@ function thresholdText(
   return parts.join(", ") || "no threshold";
 }
 
+/** A normal range as text, e.g. "0 to 10 ppm", "at most 0.4", "not detected". */
+export function normalText(
+  r: [number | null, number | null],
+  unit: string,
+  type: "number" | "boolean" = "number",
+): string {
+  if (type === "boolean") return "not detected";
+  const u =
+    unit && !["ratio", "index", "boolean"].includes(unit) ? ` ${unit}` : "";
+  const [lo, hi] = r;
+  if (lo !== null && hi !== null)
+    return lo === hi ? `${lo}${u}` : `${lo} to ${hi}${u}`;
+  if (hi !== null) return `at most ${hi}${u}`;
+  if (lo !== null) return `at least ${lo}${u}`;
+  return "not stated";
+}
+
 /** Sensor names, units and configured thresholds for this file, for the system prompt. */
 export function sensorContext(profile: DatasetProfile): string {
   const fields = profile.columns.filter((c) => c.type !== "time");
-  const lines = ["", "Sensors in this file (name, unit):"];
-  for (const c of fields.slice(0, 40))
-    lines.push(`- ${c.name} (${c.unit || "unit not stated"})`);
+  const guide = new Map(
+    (profile.safety?.parameterGuide ?? []).map((g) => [g.name, g]),
+  );
   const ev = (profile.safety?.evaluations ?? []).filter(
     (e) => e.result !== "not_evaluated",
   );
-  lines.push("", "Thresholds checked for this file:");
+  const flagged = new Set(
+    ev
+      .filter((e) => e.result === "critical" || e.result === "warning")
+      .map((e) => e.parameter),
+  );
+  const lines = [
+    "",
+    "Sensors in this file (name, unit: meaning; normal range):",
+  ];
+  for (const c of fields.slice(0, 40)) {
+    const g = guide.get(c.name);
+    const unit = c.unit || g?.unit || "unit not stated";
+    let line = `- ${c.name} (${unit})`;
+    if (g?.description) line += `: ${g.description}`;
+    if (g?.normalRange)
+      line += `; NORMAL ${normalText(g.normalRange, g.unit, g.type)}`;
+    lines.push(line);
+  }
+  // Background only for the parameters that need explaining (kept short:
+  // small local models read long prompts slowly).
+  const notes = fields
+    .map((c) => guide.get(c.name))
+    .filter(
+      (g): g is NonNullable<typeof g> => !!g?.guidance && flagged.has(g.name),
+    )
+    .slice(0, 8);
+  if (notes.length) {
+    lines.push("", "Background for flagged sensors:");
+    for (const g of notes)
+      lines.push(`- ${g.name}: ${clip(g.guidance ?? "", 160)}`);
+  }
+  lines.push(
+    "",
+    "Thresholds checked for this file (short source; full source in SAFETY ASSESSMENT):",
+  );
   if (ev.length === 0) {
     lines.push(
       "- none. No configured threshold could be checked, so no reading can be called a breach.",
@@ -87,7 +142,7 @@ export function sensorContext(profile: DatasetProfile): string {
   } else {
     for (const e of ev) {
       lines.push(
-        `- ${e.parameter}: ${thresholdText(e)} [${VERIFICATION_TEXT[e.verificationStatus]}; ${e.sourceClause}]`,
+        `- ${e.parameter}: ${thresholdText(e)} [${VERIFICATION_TEXT[e.verificationStatus]}; ${clip(e.sourceClause, 48)}]`,
       );
     }
   }
@@ -104,22 +159,27 @@ export function safetyFacts(profile: DatasetProfile): string {
   if (!a) {
     return "SAFETY ASSESSMENT (rule-based, final):\n- STATUS: CAUTION\n- No rule-based assessment was supplied with this file.";
   }
+  const triggered = a.evaluations.filter(
+    (e) => e.result === "critical" || e.result === "warning",
+  );
+  // Reasons that only restate a triggered rule are listed once, below.
+  const reasons = a.reasons.filter(
+    (r) => !triggered.some((e) => r.includes(`[${e.ruleId},`)),
+  );
   const lines = [
     "SAFETY ASSESSMENT (rule-based, final):",
     `- STATUS: ${a.status} (${SAFETY_STATUS_LABEL[a.status]})`,
     `- Newest reading: ${a.latestTimestamp ?? "unknown"}${a.dataAgeMinutes !== null ? ` (${a.dataAgeMinutes} min before this assessment${a.isStale ? ", STALE" : ""})` : ""}`,
     `- Rules: ${a.configName}; ${a.rulesSummary.evaluated} checked, ${a.rulesSummary.enabled} enabled, ${a.rulesSummary.requiresVerification} awaiting verification`,
-    "- Reasons:",
-    ...a.reasons.map((r) => `  - ${r}`),
+    ...(reasons.length
+      ? ["- Other reasons:", ...reasons.map((r) => `  - ${r}`)]
+      : []),
   ];
-  const triggered = a.evaluations.filter(
-    (e) => e.result === "critical" || e.result === "warning",
-  );
   if (triggered.length) {
     lines.push("- Triggered rules:");
     for (const e of triggered) {
       lines.push(
-        `  - ${e.ruleId} (${VERIFICATION_TEXT[e.verificationStatus]}): ${e.parameter} ${e.result.toUpperCase()}; worst ${fmt(e.worstValue, e.unit)} at ${e.worstAt ?? "n/a"}; ${thresholdText(e)}; source ${e.sourceClause}`,
+        `  - ${e.ruleId} (${VERIFICATION_TEXT[e.verificationStatus]}): ${e.parameter} ${e.result.toUpperCase()}; worst ${fmt(e.worstValue, e.unit)} at ${e.worstAt ?? "n/a"}; ${thresholdText(e)}; source ${clip(e.sourceClause, 110)}`,
       );
     }
   }

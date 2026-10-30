@@ -18,6 +18,8 @@ export interface LocalAiConfig {
   numCtx: number;
   /** Sampling temperature. Low values keep the report factual. */
   temperature: number;
+  /** How long Ollama keeps the model in memory after a request (e.g. "5m", "0" = unload at once). */
+  keepAlive: string;
 }
 
 export const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
@@ -104,6 +106,20 @@ export function parseModelName(raw: string): string {
   return model;
 }
 
+/**
+ * Ollama keep_alive: a duration such as "5m", "30s", "1h", or "0" to unload the
+ * model right after each analysis (frees about 1.5 GB on an 8 GB machine).
+ */
+export function parseKeepAlive(raw: string | undefined): string {
+  const v = (raw ?? "").trim();
+  if (v === "") return "5m";
+  if (!/^(0|-1|\d{1,5}(ms|s|m|h))$/.test(v))
+    throw new ConfigError(
+      `OLLAMA_KEEP_ALIVE must look like 5m, 30s, 1h or 0, got "${raw}".`,
+    );
+  return v;
+}
+
 export function loadLocalAiConfig(
   env: Record<string, string | undefined> = process.env,
 ): LocalAiConfig {
@@ -117,5 +133,6 @@ export function loadLocalAiConfig(
     timeoutMs: readInt(env["OLLAMA_TIMEOUT_MS"], 180_000, 5_000, 1_800_000),
     numCtx: readInt(env["OLLAMA_NUM_CTX"], 8192, 2048, 131_072),
     temperature: readFloat(env["OLLAMA_TEMPERATURE"], 0.2, 0, 2),
+    keepAlive: parseKeepAlive(env["OLLAMA_KEEP_ALIVE"]),
   };
 }

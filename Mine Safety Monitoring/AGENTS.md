@@ -19,6 +19,10 @@ This app is **offline-first**. Keep it that way:
   against the original document; record the clause and verification in
   `source`, and add the evidence to `docs/safety-sources.md`. Unverified values
   stay `null` with `requires_verification`. Provisional rules stay disabled.
+- `src/config/site-thresholds.json` (easy format, `src/lib/safety/simple.ts`)
+  is the user-editable starter file, applied by default. Its entries are
+  provisional unless they carry a `verified` block; the converter must never
+  replace or weaken a verified rule.
 - A missing reading or an empty rule set must never produce SAFE. Tests in
   `src/test/safety.test.ts` and `src/test/config.test.ts` guard this.
 - The AI system prompt lives in `src/lib/ai/prompts.ts`.

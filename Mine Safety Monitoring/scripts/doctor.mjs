@@ -2,6 +2,7 @@
 // Usage: npm run doctor            (quick checks)
 //        npm run doctor -- --infer (also runs a short test prompt on the model)
 import { existsSync } from "node:fs";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -32,6 +33,19 @@ else
     `Node.js ${process.versions.node} is too old`,
     "Install Node.js 22 LTS or newer.",
   );
+
+const totalGb = os.totalmem() / 1024 ** 3;
+const freeGb = os.freemem() / 1024 ** 3;
+const ramMsg = `Memory: ${totalGb.toFixed(1)} GB total, ${freeGb.toFixed(1)} GB free`;
+if (totalGb < 6)
+  console.log(
+    `  WARN  ${ramMsg}. Use the small model: set OLLAMA_MODEL=qwen2.5:0.5b in .env and run \`ollama pull qwen2.5:0.5b\`.`,
+  );
+else if (freeGb < 2)
+  console.log(
+    `  WARN  ${ramMsg}. The model needs about 1.5 GB free: close browser tabs or apps before an analysis.`,
+  );
+else pass(ramMsg);
 
 if (existsSync("node_modules")) pass("Dependencies installed");
 else fail("Dependencies not installed", "Run `npm install` while online.");

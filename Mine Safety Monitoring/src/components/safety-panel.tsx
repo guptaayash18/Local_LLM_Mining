@@ -27,11 +27,15 @@ import {
   formatReading,
   formatThreshold,
 } from "@/lib/safety/format";
+import { normalText } from "@/lib/ai/prompts";
 import {
   activeConfigJson,
   applySiteFileText,
   clearSiteFile,
   previewSiteFileText,
+  setStarterThresholds,
+  starterThresholdsJson,
+  starterThresholdsOff,
   type ActiveConfig,
 } from "@/lib/safety/store";
 
@@ -117,6 +121,214 @@ function ageText(min: number | null): string {
 }
 
 type Preview = ReturnType<typeof previewSiteFileText>;
+
+type Band = "critical" | "warning" | "ok" | "outside" | "normal" | "unchecked";
+
+const BAND_TEXT: Record<Band, string> = {
+  critical: "CRITICAL",
+  warning: "WARNING",
+  ok: "WITHIN LIMITS",
+  outside: "OUTSIDE NORMAL",
+  normal: "NORMAL",
+  unchecked: "NOT CHECKED",
+};
+
+const BAND_STYLE: Record<Band, string> = {
+  critical: "border-negative/60 bg-negative/10 text-negative",
+  warning: "border-warning/60 bg-warning/10 text-warning",
+  ok: "border-positive/50 text-positive",
+  outside: "border-warning/50 text-warning",
+  normal: "border-positive/50 text-positive",
+  unchecked: "border-border text-muted-foreground",
+};
+
+function inNormal(
+  v: number | boolean | null,
+  r: [number | null, number | null] | null,
+): boolean | null {
+  if (v === null || r === null) return null;
+  if (typeof v === "boolean") return !v;
+  const [lo, hi] = r;
+  return (lo === null || v >= lo) && (hi === null || v <= hi);
+}
+
+/**
+ * One row per data column: what it means, its normal range, the limits in
+ * force and where the latest reading sits. The status column only repeats
+ * the rule results; the normal range is information, never a safety verdict.
+ */
+function ParameterGuide({ assessment }: { assessment: SafetyAssessment }) {
+  const guide = assessment.parameterGuide ?? [];
+  if (guide.length === 0) return null;
+  const rank: Record<Band, number> = {
+    critical: 0,
+    warning: 1,
+    outside: 2,
+    ok: 3,
+    normal: 4,
+    unchecked: 5,
+  };
+  const rows = guide.map((g) => {
+    const evs = assessment.evaluations.filter((e) => e.parameter === g.name);
+    const checked = evs.filter((e) => e.result !== "not_evaluated");
+    const latest = evs.find((e) => e.latestValue !== null)?.latestValue ?? null;
+    const unit = evs[0]?.unit ?? g.unit;
+    const worst = checked.some((e) => e.result === "critical")
+      ? "critical"
+      : checked.some((e) => e.result === "warning")
+        ? "warning"
+        : checked.length
+          ? "ok"
+          : null;
+    const triggered = checked.filter((e) => e.result === worst);
+    const provisionalOnly =
+      (worst === "critical" || worst === "warning") &&
+      triggered.every((e) => e.verificationStatus === "provisional");
+    const normal = inNormal(latest, g.normalRange);
+    const band: Band =
+      worst === "critical" || worst === "warning"
+        ? worst
+        : normal === false
+          ? "outside"
+          : worst === "ok"
+            ? "ok"
+            : normal === true
+              ? "normal"
+              : "unchecked";
+    const limits = (level: "warning" | "critical") =>
+      [
+        ...new Set(
+          evs
+            .filter((e) => e.result !== "not_evaluated")
+            .map((e) => formatThreshold(e, level))
+            .filter((t) => t !== "—"),
+        ),
+      ].join(" · ") || "—";
+    return { g, unit, latest, band, provisionalOnly, limits };
+  });
+  rows.sort((a, b) => rank[a.band] - rank[b.band]);
+
+  return (
+    <div className="mt-3">
+      <p className="font-mono text-[10px] tracking-wider text-primary">
+        PARAMETER GUIDE · WHAT EACH READING MEANS AND WHERE IT SITS
+      </p>
+      {/* Phones: one card per parameter. */}
+      <ul className="mt-1 grid gap-2 md:hidden">
+        {rows.map(({ g, unit, latest, band, provisionalOnly, limits }) => (
+          <li
+            key={g.name}
+            className="rounded-sm border border-border/70 bg-surface-2/40 p-2.5"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-mono text-[11px] break-words text-foreground">
+                  {g.name}
+                </p>
+                {g.description && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {g.description}
+                  </p>
+                )}
+              </div>
+              <span
+                className={`shrink-0 rounded-sm border px-1 py-0.5 font-mono text-[9px] tracking-wider ${BAND_STYLE[band]}`}
+              >
+                {BAND_TEXT[band]}
+                {provisionalOnly ? " · PROV." : ""}
+              </span>
+            </div>
+            <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[11px]">
+              <dt className="text-muted-foreground">LATEST</dt>
+              <dd className="text-right text-foreground">
+                {formatReading(latest, unit)}
+              </dd>
+              <dt className="text-muted-foreground">NORMAL</dt>
+              <dd className="text-right text-foreground">
+                {g.normalRange ? normalText(g.normalRange, unit, g.type) : "—"}
+              </dd>
+              <dt className="text-muted-foreground">WARNING</dt>
+              <dd className="text-right text-foreground">
+                {limits("warning")}
+              </dd>
+              <dt className="text-muted-foreground">CRITICAL</dt>
+              <dd className="text-right text-foreground">
+                {limits("critical")}
+              </dd>
+            </dl>
+            {g.guidance && (
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                {g.guidance}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-1 hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[760px] text-[11px]">
+          <thead>
+            <tr className="text-left font-mono text-muted-foreground">
+              <th className="pb-1 font-medium tracking-wider">PARAMETER</th>
+              <th className="pb-1 font-medium tracking-wider">STATE</th>
+              <th className="pb-1 text-right font-medium tracking-wider">
+                LATEST
+              </th>
+              <th className="pb-1 pl-3 font-medium tracking-wider">NORMAL</th>
+              <th className="pb-1 font-medium tracking-wider">WARNING</th>
+              <th className="pb-1 font-medium tracking-wider">CRITICAL</th>
+              <th className="pb-1 pl-2 font-medium tracking-wider">
+                WHAT IT MEANS
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ g, unit, latest, band, provisionalOnly, limits }) => (
+              <tr key={g.name} className="border-t border-border/60 align-top">
+                <td className="py-1.5 pr-2 font-mono">
+                  <span className="text-foreground">{g.name}</span>
+                  {g.description && (
+                    <span className="block text-[10px] text-muted-foreground">
+                      {g.description}
+                    </span>
+                  )}
+                </td>
+                <td className="py-1.5 pr-2">
+                  <span
+                    className={`whitespace-nowrap rounded-sm border px-1 py-0.5 font-mono text-[9px] tracking-wider ${BAND_STYLE[band]}`}
+                  >
+                    {BAND_TEXT[band]}
+                  </span>
+                  {provisionalOnly && (
+                    <span className="mt-0.5 block font-mono text-[9px] text-muted-foreground">
+                      provisional
+                    </span>
+                  )}
+                </td>
+                <td className="py-1.5 pr-2 text-right font-mono text-foreground">
+                  {formatReading(latest, unit)}
+                </td>
+                <td className="py-1.5 pr-2 pl-3 font-mono whitespace-nowrap text-muted-foreground">
+                  {g.normalRange
+                    ? normalText(g.normalRange, unit, g.type)
+                    : "—"}
+                </td>
+                <td className="py-1.5 pr-2 font-mono text-muted-foreground">
+                  {limits("warning")}
+                </td>
+                <td className="py-1.5 pr-2 font-mono text-muted-foreground">
+                  {limits("critical")}
+                </td>
+                <td className="max-w-[26rem] py-1.5 pl-2 leading-relaxed break-words text-muted-foreground">
+                  {g.guidance ?? "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export function SafetyPanel({
   assessment,
@@ -252,94 +464,101 @@ export function SafetyPanel({
         </div>
       </div>
 
+      <ParameterGuide assessment={assessment} />
+
       {/* Rule table */}
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[860px] font-mono text-[11px]">
-          <thead>
-            <tr className="text-left text-muted-foreground">
-              <th className="pb-1 font-medium tracking-wider">
-                RULE / PARAMETER
-              </th>
-              <th className="pb-1 font-medium tracking-wider">STATUS</th>
-              <th className="pb-1 font-medium tracking-wider">RESULT</th>
-              <th className="pb-1 text-right font-medium tracking-wider">
-                LATEST
-              </th>
-              <th className="pb-1 text-right font-medium tracking-wider">
-                1-HOUR MA
-              </th>
-              <th className="pb-1 text-right font-medium tracking-wider">
-                WORST
-              </th>
-              <th className="pb-1 text-right font-medium tracking-wider">
-                WARNING
-              </th>
-              <th className="pb-1 text-right font-medium tracking-wider">
-                CRITICAL
-              </th>
-              <th className="pb-1 pl-3 font-medium tracking-wider">SOURCE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((e) => (
-              <tr
-                key={e.ruleId}
-                className="border-t border-border/60 align-top"
-              >
-                <td className="py-1.5 pr-2">
-                  <span className="text-foreground">{e.parameter}</span>
-                  <br />
-                  <span className="text-[10px] text-muted-foreground">
-                    {e.ruleId}
-                  </span>
-                </td>
-                <td className="py-1.5 pr-2">
-                  <VerificationBadge status={e.verificationStatus} />
-                </td>
-                <td
-                  className={`py-1.5 pr-2 font-semibold ${RESULT_STYLE[e.result]}`}
-                >
-                  {RESULT_TEXT[e.result]}
-                  {e.result === "not_evaluated" && e.notEvaluatedReason && (
-                    <span className="block max-w-[14rem] text-[10px] font-normal break-words">
-                      {e.notEvaluatedReason}
-                    </span>
-                  )}
-                </td>
-                <td className="py-1.5 pr-2 text-right text-foreground">
-                  {formatReading(e.latestValue, e.unit)}
-                </td>
-                <td className="py-1.5 pr-2 text-right text-foreground">
-                  {formatReading(e.movingAvg1h, e.unit)}
-                </td>
-                <td className="py-1.5 pr-2 text-right text-foreground">
-                  {formatReading(e.worstValue, e.unit)}
-                </td>
-                <td className="py-1.5 pr-2 text-right text-muted-foreground">
-                  {formatThreshold(e, "warning")}
-                </td>
-                <td className="py-1.5 pr-2 text-right text-muted-foreground">
-                  {formatThreshold(e, "critical")}
-                </td>
-                <td className="max-w-[18rem] py-1.5 pl-3 break-words text-[10px] text-muted-foreground">
-                  {e.sourceUrl ? (
-                    <a
-                      href={e.sourceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline decoration-dotted"
-                    >
-                      {e.sourceClause}
-                    </a>
-                  ) : (
-                    e.sourceClause
-                  )}
-                </td>
+      <details className="mt-3">
+        <summary className="cursor-pointer font-mono text-[10px] tracking-wider text-primary">
+          RULE DETAILS ({rows.length} RULES, SOURCES AND VERIFICATION)
+        </summary>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[860px] font-mono text-[11px]">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="pb-1 font-medium tracking-wider">
+                  RULE / PARAMETER
+                </th>
+                <th className="pb-1 font-medium tracking-wider">STATUS</th>
+                <th className="pb-1 font-medium tracking-wider">RESULT</th>
+                <th className="pb-1 text-right font-medium tracking-wider">
+                  LATEST
+                </th>
+                <th className="pb-1 text-right font-medium tracking-wider">
+                  1-HOUR MA
+                </th>
+                <th className="pb-1 text-right font-medium tracking-wider">
+                  WORST
+                </th>
+                <th className="pb-1 text-right font-medium tracking-wider">
+                  WARNING
+                </th>
+                <th className="pb-1 text-right font-medium tracking-wider">
+                  CRITICAL
+                </th>
+                <th className="pb-1 pl-3 font-medium tracking-wider">SOURCE</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((e) => (
+                <tr
+                  key={e.ruleId}
+                  className="border-t border-border/60 align-top"
+                >
+                  <td className="py-1.5 pr-2">
+                    <span className="text-foreground">{e.parameter}</span>
+                    <br />
+                    <span className="text-[10px] text-muted-foreground">
+                      {e.ruleId}
+                    </span>
+                  </td>
+                  <td className="py-1.5 pr-2">
+                    <VerificationBadge status={e.verificationStatus} />
+                  </td>
+                  <td
+                    className={`py-1.5 pr-2 font-semibold ${RESULT_STYLE[e.result]}`}
+                  >
+                    {RESULT_TEXT[e.result]}
+                    {e.result === "not_evaluated" && e.notEvaluatedReason && (
+                      <span className="block max-w-[14rem] text-[10px] font-normal break-words">
+                        {e.notEvaluatedReason}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-foreground">
+                    {formatReading(e.latestValue, e.unit)}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-foreground">
+                    {formatReading(e.movingAvg1h, e.unit)}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-foreground">
+                    {formatReading(e.worstValue, e.unit)}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-muted-foreground">
+                    {formatThreshold(e, "warning")}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-muted-foreground">
+                    {formatThreshold(e, "critical")}
+                  </td>
+                  <td className="max-w-[18rem] py-1.5 pl-3 break-words text-[10px] text-muted-foreground">
+                    {e.sourceUrl ? (
+                      <a
+                        href={e.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline decoration-dotted"
+                      >
+                        {e.sourceClause}
+                      </a>
+                    ) : (
+                      e.sourceClause
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
       {assessment.officialCopyCaveat && (
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
           Regulatory thresholds come from the Coal Mines Regulations, 2017
@@ -361,11 +580,15 @@ export function SafetyPanel({
           <FileJson className="size-3.5" />
           LOAD SITE THRESHOLDS (JSON)
         </button>
-        {active.site && (
+        {active.site && !active.site.bundled && (
           <button
             onClick={() => {
               clearSiteFile();
-              setMessage("Site thresholds removed. Using the built-in rules.");
+              setMessage(
+                starterThresholdsOff()
+                  ? "Site thresholds removed. Using the built-in rules."
+                  : "Site thresholds removed. Using the built-in rules and the starter thresholds.",
+              );
             }}
             className={btn}
           >
@@ -373,6 +596,42 @@ export function SafetyPanel({
             REMOVE SITE FILE
           </button>
         )}
+        <button
+          onClick={() => {
+            const off = starterThresholdsOff();
+            setStarterThresholds(off);
+            setMessage(
+              off
+                ? "Starter thresholds switched on."
+                : "Starter thresholds switched off. Only the built-in regulation rules (and any site file) apply.",
+            );
+          }}
+          className={btn}
+          title="The starter thresholds give every sensor a description, normal range and provisional limits (src/config/site-thresholds.json)"
+        >
+          {starterThresholdsOff() ? (
+            <Check className="size-3.5" />
+          ) : (
+            <X className="size-3.5" />
+          )}
+          {starterThresholdsOff()
+            ? "USE STARTER THRESHOLDS"
+            : "TURN OFF STARTER THRESHOLDS"}
+        </button>
+        <button
+          onClick={() =>
+            downloadText(
+              "site-thresholds.json",
+              starterThresholdsJson(),
+              "application/json",
+            )
+          }
+          className={btn}
+          title="Download the easy-format thresholds file: edit the numbers, then load it with LOAD SITE THRESHOLDS"
+        >
+          <Download className="size-3.5" />
+          DOWNLOAD EASY TEMPLATE
+        </button>
         <button
           onClick={() =>
             downloadText(
@@ -430,10 +689,10 @@ export function SafetyPanel({
         )}
         {active.site && (
           <p className="w-full font-mono text-[10px] text-muted-foreground">
-            SITE FILE "{active.site.fileName}" (
-            {active.site.policy.toUpperCase()}): {active.site.added.length}{" "}
-            ADDED, {active.site.replaced.length} REPLACED,{" "}
-            {active.site.kept.length} BUILT-IN KEPT
+            {active.site.bundled ? "STARTER THRESHOLDS" : "SITE FILE"} "
+            {active.site.fileName}" ({active.site.policy.toUpperCase()}):{" "}
+            {active.site.added.length} ADDED, {active.site.replaced.length}{" "}
+            REPLACED, {active.site.kept.length} BUILT-IN KEPT
             {active.site.removed.length
               ? `, ${active.site.removed.length} BUILT-IN NOT USED`
               : ""}
