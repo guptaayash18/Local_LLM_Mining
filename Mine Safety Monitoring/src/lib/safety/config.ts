@@ -538,7 +538,8 @@ export function mergeSiteConfig(
   const siteDq = toRulesConfig(site).dataQuality;
   const rawDq = site.dataQuality ?? {};
   const result: RulesConfig = {
-    name: `${base.name} + ${site.name}`,
+    // Names are limited to 160 characters by the schema.
+    name: `${base.name} + ${site.name}`.slice(0, 160),
     mineContext: {
       ...base.mineContext,
       ...Object.fromEntries(

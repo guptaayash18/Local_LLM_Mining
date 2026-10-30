@@ -110,6 +110,15 @@ export interface ParameterGuideEntry {
   normalRange: [number | null, number | null] | null;
 }
 
+export type ActionKind =
+  "act_now" | "check_urgently" | "fix_data" | "monitor" | "set_up";
+
+export interface ActionItem {
+  kind: ActionKind;
+  text: string;
+  parameter?: string;
+}
+
 export interface SafetyAssessment {
   status: SafetyStatus;
   /** Why the status was chosen, most important first. */
@@ -118,6 +127,8 @@ export interface SafetyAssessment {
   dataQuality: DataQualityWarning[];
   /** Rule-based next steps (available without any AI model). */
   nextActions: string[];
+  /** The same steps with a priority, all of them (for the panel). */
+  actionItems: ActionItem[];
   triggeredRuleIds: string[];
   /** Newest valid timestamp, as written in the file, and as ISO. */
   latestTimestamp: string | null;
@@ -742,14 +753,18 @@ export function assessSafety(
   }
 
   // ---- Next actions -----------------------------------------------------
-  const actions: string[] = [];
-  // Provisional findings come after verified ones and data checks, so the
-  // list (capped at 10) never hides a regulatory action.
-  const provisionalActions: string[] = [];
+  // Each action has a priority so the panel can group them; the plain-text
+  // list (nextActions) keeps verified and data actions ahead of provisional
+  // ones, so its 10-item cap never hides a regulatory action.
+  const items: ActionItem[] = [];
+  const add = (kind: ActionKind, text: string, parameter?: string) =>
+    items.push({ kind, text, ...(parameter ? { parameter } : {}) });
   for (const e of evaluations) {
     if (e.result === "critical" && e.operator === "is_true") {
-      actions.push(
+      add(
+        "act_now",
         `Treat ${e.parameter} as a possible fire (${e.sourceClause.split(":")[0]}): follow the site fire procedure, withdraw persons as required, and have a competent person confirm.`,
+        e.parameter,
       );
     } else if (
       (e.result === "critical" || e.result === "warning") &&
@@ -759,24 +774,36 @@ export function assessSafety(
         e.result === "critical" ? e.critical : e.warning,
         e.unit,
       );
-      provisionalActions.push(
-        e.result === "critical"
-          ? `Check ${e.parameter} urgently: it is past the provisional critical level (${limit}). Confirm with an independent instrument and follow the site procedure.`
-          : `Increase monitoring of ${e.parameter}: it is past the provisional warning level (${limit}).`,
-      );
+      if (e.result === "critical")
+        add(
+          "check_urgently",
+          `Check ${e.parameter} urgently: it is past the provisional critical level (${limit}). Confirm with an independent instrument and follow the site procedure.`,
+          e.parameter,
+        );
+      else
+        add(
+          "monitor",
+          `Increase monitoring of ${e.parameter}: it is past the provisional warning level (${limit}).`,
+          e.parameter,
+        );
     } else if (e.result === "critical") {
-      actions.push(
+      add(
+        "act_now",
         `Verify ${e.parameter} with an independent instrument and act on ${e.sourceClause.split(":")[0]} without delay.`,
+        e.parameter,
       );
     } else if (e.result === "warning") {
-      actions.push(
+      add(
+        "monitor",
         `Increase monitoring of ${e.parameter} and confirm the trend (${e.sourceClause.split(":")[0]}).`,
+        e.parameter,
       );
     }
   }
   for (const q of blocking) {
     if (q.code === "stale_data")
-      actions.push(
+      add(
+        "fix_data",
         "Check the sensor data feed: the newest reading is not current.",
       );
     else if (
@@ -789,19 +816,49 @@ export function assessSafety(
         "missing_parameter",
       ].includes(q.code)
     )
-      actions.push(`Check the ${q.parameter} sensor and logger.`);
+      add(
+        "fix_data",
+        `Check the ${q.parameter} sensor and logger.`,
+        q.parameter,
+      );
     else if (q.code === "derived_mismatch")
-      actions.push(
+      add(
+        "fix_data",
         `Check how ${q.parameter} is calculated and that its unit matches the configuration.`,
+        q.parameter,
       );
   }
   for (const id of new Set(unverifiedRequired)) {
     const r = config.rules.find((x) => x.id === id);
     if (r)
-      actions.push(
+      add(
+        "set_up",
         `Configure a verified ${r.parameter} threshold (site thresholds file) so rule "${id}" can be checked.`,
+        r.parameter,
       );
   }
+  const seen = new Set<string>();
+  const actionItems = items.filter((i) =>
+    seen.has(i.text) ? false : (seen.add(i.text), true),
+  );
+  // Actions that come from provisional rules (marked when they were added).
+  const provisionalTexts = new Set(
+    actionItems
+      .filter((i) => /provisional (critical|warning) level/.test(i.text))
+      .map((i) => i.text),
+  );
+  const actions = [
+    ...actionItems.filter((i) => !provisionalTexts.has(i.text)),
+    ...actionItems.filter((i) => provisionalTexts.has(i.text)),
+  ].map((i) => i.text);
+  const KIND_ORDER: Record<ActionKind, number> = {
+    act_now: 0,
+    check_urgently: 1,
+    fix_data: 2,
+    monitor: 3,
+    set_up: 4,
+  };
+  actionItems.sort((x, y) => KIND_ORDER[x.kind] - KIND_ORDER[y.kind]);
 
   // ---- Summary ----------------------------------------------------------
   const presentFields = dataset.columns
@@ -830,7 +887,8 @@ export function assessSafety(
     reasons,
     evaluations,
     dataQuality: quality,
-    nextActions: [...new Set([...actions, ...provisionalActions])].slice(0, 10),
+    nextActions: actions.slice(0, 10),
+    actionItems,
     triggeredRuleIds: evaluations
       .filter((e) => e.result === "critical" || e.result === "warning")
       .map((e) => e.ruleId),
@@ -898,6 +956,8 @@ export function compactAssessment(a: SafetyAssessment): SafetyAssessment {
       .slice(0, 10)
       .map((q) => ({ ...q, message: clipText(q.message) })),
     nextActions: a.nextActions.slice(0, 8).map((n) => clipText(n)),
+    // The AI gets the plain list above; the grouped list is for the panel.
+    actionItems: [],
     unassessedParameters: a.unassessedParameters.slice(0, 30),
     parameterGuide: (a.parameterGuide ?? []).slice(0, 40).map((g) => ({
       ...g,

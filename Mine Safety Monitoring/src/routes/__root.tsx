@@ -77,13 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "STRATA — Mining Data Intelligence" },
+      { title: "HazardWatch — Mine Environment & Hazard Monitor" },
       {
         name: "description",
         content:
           "Upload mine-site CSVs and turn operational parameters into trends, correlations and local AI analysis, fully offline.",
       },
-      { property: "og:title", content: "STRATA — Mining Data Intelligence" },
+      { property: "og:title", content: "HazardWatch — Mine Environment & Hazard Monitor" },
       {
         property: "og:description",
         content:

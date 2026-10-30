@@ -40,7 +40,7 @@ if (!existsSync(entry)) {
 }
 
 console.log(
-  `STRATA starting on http://${host.includes(":") ? `[${host}]` : host}:${port}`,
+  `HazardWatch starting on http://${host.includes(":") ? `[${host}]` : host}:${port}`,
 );
 console.log(
   `Local AI: ${process.env.OLLAMA_MODEL || "qwen2.5:1.5b"} via ${process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434"}`,

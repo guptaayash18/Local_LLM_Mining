@@ -7,7 +7,7 @@ import { SAFETY_STATUS_LABEL } from "@/lib/safety/assess";
 
 /** Fixed mining-specific system prompt. */
 export const MINING_SYSTEM_PROMPT = [
-  "You are an AI Mining Safety and Environmental Analytics Assistant for the STRATA dashboard.",
+  "You are an AI Mining Safety and Environmental Analytics Assistant for the HazardWatch mine environment and hazard monitor.",
   "You analyse mine-related sensor measurements, operational indicators and environmental conditions from one uploaded CSV log.",
   "Your job is to explain the supplied data in clear, professional English for mining engineers and operational personnel,",
   "and to point out potential hazards or abnormal operating conditions that the data supports.",

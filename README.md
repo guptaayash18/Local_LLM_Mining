@@ -1,8 +1,15 @@
 # Local LLM Mining
 
-**STRATA** is a mine-data dashboard. Upload a CSV and get trends,
-correlations, outliers and an AI shift report written by Qwen 2.5 1.5B running
-on your own device. No cloud AI is used.
+**HazardWatch** is a mine environment and hazard monitor. Upload a sensor CSV
+(gases, temperatures, ventilation, smoke and fire detection) and get a
+rule-based safety status, a guide to every parameter, trends, correlations,
+outliers and an AI shift report.
+
+**AI engine (final):** Qwen 2.5 1.5B (`qwen2.5:1.5b`) running locally in
+Ollama on your own computer. No cloud AI is used, and nothing leaves the
+machine. The GitHub Pages edition uses the same local model when the app is
+running; only if it is not can a visitor choose the in-browser build of the
+same Qwen model.
 
 It comes in two editions:
 

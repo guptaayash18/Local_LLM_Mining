@@ -1,4 +1,4 @@
-# STRATA — Offline Mine Data Intelligence
+# HazardWatch — Mine Environment & Hazard Monitor (offline)
 
 Upload a mine-site CSV log and get multi-parameter trends, correlations, outlier
 flags and an AI shift report. **Everything runs on your computer.** The AI
@@ -47,7 +47,7 @@ consistency checks (`src/lib/ai/analyst.ts`). Only the place the model runs diff
 - **Deploy:** `.github/workflows/pages.yml` builds and publishes the site on
   every push to `main`. One-time setup: in the GitHub repo, open
   **Settings → Pages** and set **Source** to **GitHub Actions**.
-- **AI source:** the page first looks for the local STRATA app at
+- **AI source:** the page first looks for the local HazardWatch app at
   `http://127.0.0.1:8080` (change with `VITE_LOCAL_AI_URL` at build time). If it
   is not reachable, the AI Analyst shows **Local AI is not running** with the
   start command, and offers the in-browser model as an alternative. There is no
@@ -170,7 +170,7 @@ while the window is open. Close the window to stop.
 Or step by step:
 
 1. Make sure Ollama is running: open the Ollama app, or run `ollama serve`.
-2. Start STRATA:
+2. Start HazardWatch:
 
    ```powershell
    npm start
@@ -209,7 +209,7 @@ All settings are optional environment variables. Put them in `.env` (see
 | --- | --- | --- |
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama address. Only loopback addresses are accepted. |
 | `OLLAMA_MODEL` | `qwen2.5:1.5b` | Any model pulled into Ollama. |
-| `OLLAMA_TIMEOUT_MS` | `180000` | Max time for one model call. |
+| `OLLAMA_TIMEOUT_MS` | `420000` | Max time for one model call (7 min, for a laptop CPU). |
 | `OLLAMA_NUM_CTX` | `8192` | Context window passed to the model. Raised automatically for one request (up to 16384) if the prompt would not fit. |
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower is more literal. |
 | `OLLAMA_KEEP_ALIVE` | `5m` | How long the model stays in memory after an analysis (`0` = unload at once). |
@@ -446,7 +446,7 @@ Saved runs live in your browser's IndexedDB for the address
 | --- | --- |
 | Badge says **LOCAL AI OFFLINE** | Start Ollama (open the app, or `ollama serve`). Run `npm run doctor`. |
 | Badge says **MODEL NOT DOWNLOADED** | `ollama pull qwen2.5:1.5b` (or the model in `OLLAMA_MODEL`), while online. |
-| "did not answer within 180 s" | The first run loads the model, which is slow on some PCs. Retry, or raise `OLLAMA_TIMEOUT_MS`. |
+| "did not answer within 420 s" | The first run loads the model, which is slow on some PCs. Retry, close other programs, or raise `OLLAMA_TIMEOUT_MS`. |
 | Summary says it was "written from the statistics" | The model contradicted the data twice. Click **RE-RUN**, or use a larger model. |
 | `npm install` fails with `Cannot read properties of null (reading 'edgesOut')` | npm 10 bug. Use `npm ci` (uses the lockfile), or `npm install --legacy-peer-deps`, or upgrade npm (`npm i -g npm@11`). |
 | `Port 8080 is in use` | Close the other program, or set `PORT=8090`. Saved runs are per port. |

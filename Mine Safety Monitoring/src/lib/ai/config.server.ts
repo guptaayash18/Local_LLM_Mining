@@ -130,7 +130,7 @@ export function loadLocalAiConfig(
       allowNonLoopback,
     ),
     model: parseModelName(env["OLLAMA_MODEL"] || DEFAULT_OLLAMA_MODEL),
-    timeoutMs: readInt(env["OLLAMA_TIMEOUT_MS"], 180_000, 5_000, 1_800_000),
+    timeoutMs: readInt(env["OLLAMA_TIMEOUT_MS"], 420_000, 5_000, 1_800_000),
     numCtx: readInt(env["OLLAMA_NUM_CTX"], 8192, 2048, 131_072),
     temperature: readFloat(env["OLLAMA_TEMPERATURE"], 0.2, 0, 2),
     keepAlive: parseKeepAlive(env["OLLAMA_KEEP_ALIVE"]),

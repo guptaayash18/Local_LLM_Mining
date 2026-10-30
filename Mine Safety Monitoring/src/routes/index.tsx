@@ -7,7 +7,7 @@ import {
   Cpu,
   Download,
   GitBranch,
-  HardHat,
+  ShieldAlert,
   RefreshCw,
   ScanSearch,
   TriangleAlert,
@@ -54,13 +54,13 @@ import type { SavedRun } from "@/lib/storage/runs";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "STRATA — Mine Operations Dashboard" },
+      { title: "HazardWatch — Mine Environment & Hazard Monitor" },
       {
         name: "description",
         content:
           "Upload mine-site CSV logs and get multi-parameter trends, correlations, outlier flags and a local AI analyst read in one offline dashboard.",
       },
-      { property: "og:title", content: "STRATA — Mine Operations Dashboard" },
+      { property: "og:title", content: "HazardWatch — Mine Environment & Hazard Monitor" },
       {
         property: "og:description",
         content:
@@ -769,14 +769,14 @@ function Dashboard() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-md border border-primary/50 bg-primary/10">
-              <HardHat className="size-6 text-primary" />
+              <ShieldAlert className="size-6 text-primary" />
             </span>
             <div>
               <h1 className="font-display text-3xl leading-none tracking-widest text-foreground text-glow">
-                STRATA
+                HAZARDWATCH
               </h1>
               <p className="font-mono text-[10px] tracking-[0.25em] text-muted-foreground">
-                MINE DATA INTELLIGENCE
+                MINE ENVIRONMENT & HAZARD MONITOR
               </p>
             </div>
           </div>
@@ -944,7 +944,7 @@ function Dashboard() {
       <footer className="border-t border-border bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
           <p className="font-mono text-[10px] tracking-wider text-muted-foreground">
-            STRATA // ALL READINGS COMPUTED IN YOUR BROWSER FROM THE UPLOADED
+            HAZARDWATCH // ALL READINGS COMPUTED IN YOUR BROWSER FROM THE UPLOADED
             LOG · AI READ BY A LOCAL MODEL ON THIS COMPUTER · NOTHING LEAVES
             THIS MACHINE
           </p>

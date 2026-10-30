@@ -15,7 +15,7 @@ export type LocalAiErrorCode =
   | "invalid_input" // the request payload failed validation
   | "consent_required" // browser mode: the model must be downloaded first
   | "unsupported" // browser mode: no WebGPU on this device
-  | "backend_unavailable"; // Pages edition: the local STRATA app is not reachable
+  | "backend_unavailable"; // Pages edition: the local HazardWatch app is not reachable
 
 export class LocalAiError extends Error {
   override name = "LocalAiError";
@@ -44,7 +44,7 @@ export interface ProviderStatus {
   unsupported?: boolean;
   /** Browser mode: approximate one-time download size. */
   downloadSizeMB?: number;
-  /** Pages edition: the local STRATA app (Ollama) was not reachable. */
+  /** Pages edition: the local HazardWatch app (Ollama) was not reachable. */
   localBackendMissing?: boolean;
   /** Pages edition: this browser can run the in-browser model instead. */
   browserModelAvailable?: boolean;

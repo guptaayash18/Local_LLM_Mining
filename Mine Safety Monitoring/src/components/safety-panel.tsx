@@ -4,6 +4,7 @@ import {
   Clock,
   Download,
   FileJson,
+  Info,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -27,7 +28,14 @@ import {
   formatReading,
   formatThreshold,
 } from "@/lib/safety/format";
-import { normalText } from "@/lib/ai/prompts";
+import {
+  Actions,
+  Findings,
+  ParameterCards,
+  RuleTiles,
+  Scoreboard,
+  guideRows,
+} from "./safety-sections";
 import {
   activeConfigJson,
   applySiteFileText,
@@ -122,214 +130,6 @@ function ageText(min: number | null): string {
 
 type Preview = ReturnType<typeof previewSiteFileText>;
 
-type Band = "critical" | "warning" | "ok" | "outside" | "normal" | "unchecked";
-
-const BAND_TEXT: Record<Band, string> = {
-  critical: "CRITICAL",
-  warning: "WARNING",
-  ok: "WITHIN LIMITS",
-  outside: "OUTSIDE NORMAL",
-  normal: "NORMAL",
-  unchecked: "NOT CHECKED",
-};
-
-const BAND_STYLE: Record<Band, string> = {
-  critical: "border-negative/60 bg-negative/10 text-negative",
-  warning: "border-warning/60 bg-warning/10 text-warning",
-  ok: "border-positive/50 text-positive",
-  outside: "border-warning/50 text-warning",
-  normal: "border-positive/50 text-positive",
-  unchecked: "border-border text-muted-foreground",
-};
-
-function inNormal(
-  v: number | boolean | null,
-  r: [number | null, number | null] | null,
-): boolean | null {
-  if (v === null || r === null) return null;
-  if (typeof v === "boolean") return !v;
-  const [lo, hi] = r;
-  return (lo === null || v >= lo) && (hi === null || v <= hi);
-}
-
-/**
- * One row per data column: what it means, its normal range, the limits in
- * force and where the latest reading sits. The status column only repeats
- * the rule results; the normal range is information, never a safety verdict.
- */
-function ParameterGuide({ assessment }: { assessment: SafetyAssessment }) {
-  const guide = assessment.parameterGuide ?? [];
-  if (guide.length === 0) return null;
-  const rank: Record<Band, number> = {
-    critical: 0,
-    warning: 1,
-    outside: 2,
-    ok: 3,
-    normal: 4,
-    unchecked: 5,
-  };
-  const rows = guide.map((g) => {
-    const evs = assessment.evaluations.filter((e) => e.parameter === g.name);
-    const checked = evs.filter((e) => e.result !== "not_evaluated");
-    const latest = evs.find((e) => e.latestValue !== null)?.latestValue ?? null;
-    const unit = evs[0]?.unit ?? g.unit;
-    const worst = checked.some((e) => e.result === "critical")
-      ? "critical"
-      : checked.some((e) => e.result === "warning")
-        ? "warning"
-        : checked.length
-          ? "ok"
-          : null;
-    const triggered = checked.filter((e) => e.result === worst);
-    const provisionalOnly =
-      (worst === "critical" || worst === "warning") &&
-      triggered.every((e) => e.verificationStatus === "provisional");
-    const normal = inNormal(latest, g.normalRange);
-    const band: Band =
-      worst === "critical" || worst === "warning"
-        ? worst
-        : normal === false
-          ? "outside"
-          : worst === "ok"
-            ? "ok"
-            : normal === true
-              ? "normal"
-              : "unchecked";
-    const limits = (level: "warning" | "critical") =>
-      [
-        ...new Set(
-          evs
-            .filter((e) => e.result !== "not_evaluated")
-            .map((e) => formatThreshold(e, level))
-            .filter((t) => t !== "—"),
-        ),
-      ].join(" · ") || "—";
-    return { g, unit, latest, band, provisionalOnly, limits };
-  });
-  rows.sort((a, b) => rank[a.band] - rank[b.band]);
-
-  return (
-    <div className="mt-3">
-      <p className="font-mono text-[10px] tracking-wider text-primary">
-        PARAMETER GUIDE · WHAT EACH READING MEANS AND WHERE IT SITS
-      </p>
-      {/* Phones: one card per parameter. */}
-      <ul className="mt-1 grid gap-2 md:hidden">
-        {rows.map(({ g, unit, latest, band, provisionalOnly, limits }) => (
-          <li
-            key={g.name}
-            className="rounded-sm border border-border/70 bg-surface-2/40 p-2.5"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-mono text-[11px] break-words text-foreground">
-                  {g.name}
-                </p>
-                {g.description && (
-                  <p className="text-[11px] text-muted-foreground">
-                    {g.description}
-                  </p>
-                )}
-              </div>
-              <span
-                className={`shrink-0 rounded-sm border px-1 py-0.5 font-mono text-[9px] tracking-wider ${BAND_STYLE[band]}`}
-              >
-                {BAND_TEXT[band]}
-                {provisionalOnly ? " · PROV." : ""}
-              </span>
-            </div>
-            <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[11px]">
-              <dt className="text-muted-foreground">LATEST</dt>
-              <dd className="text-right text-foreground">
-                {formatReading(latest, unit)}
-              </dd>
-              <dt className="text-muted-foreground">NORMAL</dt>
-              <dd className="text-right text-foreground">
-                {g.normalRange ? normalText(g.normalRange, unit, g.type) : "—"}
-              </dd>
-              <dt className="text-muted-foreground">WARNING</dt>
-              <dd className="text-right text-foreground">
-                {limits("warning")}
-              </dd>
-              <dt className="text-muted-foreground">CRITICAL</dt>
-              <dd className="text-right text-foreground">
-                {limits("critical")}
-              </dd>
-            </dl>
-            {g.guidance && (
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                {g.guidance}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-1 hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[760px] text-[11px]">
-          <thead>
-            <tr className="text-left font-mono text-muted-foreground">
-              <th className="pb-1 font-medium tracking-wider">PARAMETER</th>
-              <th className="pb-1 font-medium tracking-wider">STATE</th>
-              <th className="pb-1 text-right font-medium tracking-wider">
-                LATEST
-              </th>
-              <th className="pb-1 pl-3 font-medium tracking-wider">NORMAL</th>
-              <th className="pb-1 font-medium tracking-wider">WARNING</th>
-              <th className="pb-1 font-medium tracking-wider">CRITICAL</th>
-              <th className="pb-1 pl-2 font-medium tracking-wider">
-                WHAT IT MEANS
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ g, unit, latest, band, provisionalOnly, limits }) => (
-              <tr key={g.name} className="border-t border-border/60 align-top">
-                <td className="py-1.5 pr-2 font-mono">
-                  <span className="text-foreground">{g.name}</span>
-                  {g.description && (
-                    <span className="block text-[10px] text-muted-foreground">
-                      {g.description}
-                    </span>
-                  )}
-                </td>
-                <td className="py-1.5 pr-2">
-                  <span
-                    className={`whitespace-nowrap rounded-sm border px-1 py-0.5 font-mono text-[9px] tracking-wider ${BAND_STYLE[band]}`}
-                  >
-                    {BAND_TEXT[band]}
-                  </span>
-                  {provisionalOnly && (
-                    <span className="mt-0.5 block font-mono text-[9px] text-muted-foreground">
-                      provisional
-                    </span>
-                  )}
-                </td>
-                <td className="py-1.5 pr-2 text-right font-mono text-foreground">
-                  {formatReading(latest, unit)}
-                </td>
-                <td className="py-1.5 pr-2 pl-3 font-mono whitespace-nowrap text-muted-foreground">
-                  {g.normalRange
-                    ? normalText(g.normalRange, unit, g.type)
-                    : "—"}
-                </td>
-                <td className="py-1.5 pr-2 font-mono text-muted-foreground">
-                  {limits("warning")}
-                </td>
-                <td className="py-1.5 pr-2 font-mono text-muted-foreground">
-                  {limits("critical")}
-                </td>
-                <td className="max-w-[26rem] py-1.5 pl-2 leading-relaxed break-words text-muted-foreground">
-                  {g.guidance ?? "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export function SafetyPanel({
   assessment,
   active,
@@ -344,7 +144,8 @@ export function SafetyPanel({
     fileName: string;
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const { status, rulesSummary: rs } = assessment;
+  const { status } = assessment;
+  const guide = guideRows(assessment);
   const dq = active.config.dataQuality;
 
   const order = { critical: 0, warning: 1, ok: 2, not_evaluated: 3 } as const;
@@ -356,6 +157,7 @@ export function SafetyPanel({
     <div
       className={`mb-4 rounded-md border bg-surface p-4 ${SAFETY_STYLES[status].split(" ")[0]}`}
     >
+      {/* 1. Status and scoreboard */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
         <div className="min-w-0">
           <p className="font-mono text-[10px] tracking-wider text-muted-foreground">
@@ -369,14 +171,19 @@ export function SafetyPanel({
           {MEANING[status]}
         </p>
       </div>
+      <div className="mt-3">
+        <Scoreboard rows={guide} />
+      </div>
 
-      {/* Freshness */}
-      <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] tracking-wide text-foreground">
-        <Clock className="size-3.5 text-primary" aria-hidden="true" />
-        NEWEST READING: {assessment.latestTimestamp ?? "—"} (
-        {ageText(assessment.dataAgeMinutes)})
+      {/* 2. Data freshness */}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
+        <span className="flex items-center gap-1.5 rounded-sm border border-border px-1.5 py-0.5 text-foreground">
+          <Clock className="size-3 text-primary" aria-hidden="true" />
+          NEWEST READING: {assessment.latestTimestamp ?? "—"} (
+          {ageText(assessment.dataAgeMinutes)})
+        </span>
         <span
-          className={`rounded-sm border px-1.5 py-0.5 text-[10px] ${
+          className={`rounded-sm border px-1.5 py-0.5 ${
             assessment.isStale
               ? "border-warning/60 bg-warning/10 text-warning"
               : "border-positive/50 text-positive"
@@ -386,28 +193,19 @@ export function SafetyPanel({
             ? `STALE (LIMIT ${dq.staleAfterMinutes} MIN)`
             : "CURRENT"}
         </span>
-        <span className="text-muted-foreground">
-          · SAMPLING{" "}
+        <span className="rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground">
+          SAMPLING{" "}
           {assessment.samplingIntervalSeconds
             ? `EVERY ${assessment.samplingIntervalSeconds} S`
             : "UNKNOWN"}
           {dq.expectedSamplingIntervalSeconds
             ? ` (EXPECTED ${dq.expectedSamplingIntervalSeconds} S)`
-            : " (INFERRED)"}{" "}
-          · WINDOW {dq.evaluationWindowMinutes} MIN
+            : " (INFERRED)"}
         </span>
-      </p>
-
-      {/* Rule summary */}
-      <p className="mt-1.5 font-mono text-[10px] leading-relaxed tracking-wide text-muted-foreground">
-        RULES: {active.source.toUpperCase()} · {rs.enabled} ENABLED (
-        {rs.verifiedRegulatory} VERIFIED REGULATORY, {rs.verifiedSite} VERIFIED
-        SITE, {rs.provisional} PROVISIONAL) · {rs.evaluated} CHECKED AGAINST
-        THIS FILE · {rs.requiresVerification} AWAITING VERIFICATION
-        {active.config.mineContext.degreeOfGassiness
-          ? ` · DEGREE ${active.config.mineContext.degreeOfGassiness} GASSY MINE`
-          : " · DEGREE OF GASSINESS NOT SET"}
-      </p>
+        <span className="rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground">
+          WINDOW {dq.evaluationWindowMinutes} MIN
+        </span>
+      </div>
 
       {/* Data quality */}
       {assessment.dataQuality.length > 0 && (
@@ -418,53 +216,63 @@ export function SafetyPanel({
           </p>
           <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-foreground">
             {assessment.dataQuality.map((q, i) => (
-              <li key={i} className="break-words">
-                • {q.message}
-                {q.blocksSafe && (
-                  <span className="ml-1 font-mono text-[9px] text-warning">
-                    [PREVENTS SAFE]
-                  </span>
-                )}
+              <li key={i} className="flex gap-1.5 break-words">
+                <span className="text-warning">▸</span>
+                <span>
+                  {q.message}
+                  {q.blocksSafe && (
+                    <span className="ml-1 rounded-sm border border-warning/50 px-1 font-mono text-[9px] text-warning">
+                      PREVENTS SAFE
+                    </span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] tracking-wider text-primary">
-            EVIDENCE
+      {/* 3. Findings and actions */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <section className="min-w-0" aria-label="Findings">
+          <p className="mb-1.5 font-mono text-[10px] tracking-wider text-primary">
+            WHAT WAS FOUND · EVIDENCE
           </p>
-          <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-foreground">
-            {assessment.reasons.map((r, i) => (
-              <li key={i} className="break-words">
-                • {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] tracking-wider text-primary">
-            NEXT ACTIONS (RULE-BASED)
+          <Findings a={assessment} />
+        </section>
+        <section className="min-w-0" aria-label="Next actions">
+          <p className="mb-1.5 font-mono text-[10px] tracking-wider text-primary">
+            WHAT TO DO · NEXT ACTIONS (RULE-BASED)
           </p>
-          <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-foreground">
-            {assessment.nextActions.length === 0 ? (
-              <li className="text-muted-foreground">
-                No rule-based action required by the configured checks.
-              </li>
-            ) : (
-              assessment.nextActions.map((a, i) => (
-                <li key={i} className="break-words">
-                  • {a}
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
+          <Actions a={assessment} />
+        </section>
       </div>
 
-      <ParameterGuide assessment={assessment} />
+      {/* 4. Parameter guide */}
+      <div className="mt-4">
+        <p className="mb-1.5 font-mono text-[10px] tracking-wider text-primary">
+          PARAMETER GUIDE · WHAT EACH READING MEANS AND WHERE IT SITS
+        </p>
+        <ParameterCards rows={guide} />
+        <p className="mt-1.5 font-mono text-[9px] tracking-wider text-muted-foreground">
+          ZONE BARS ARE NOT TO SCALE: EACH ZONE HAS THE SAME WIDTH; THE MARKER
+          IS THE LATEST READING.
+        </p>
+      </div>
+
+      {/* 5. Rules in force */}
+      <div className="mt-4">
+        <p className="mb-1.5 font-mono text-[10px] tracking-wider text-primary">
+          RULES IN FORCE
+        </p>
+        <RuleTiles
+          a={assessment}
+          gassiness={active.config.mineContext.degreeOfGassiness}
+        />
+        <p className="mt-1 font-mono text-[10px] leading-relaxed text-muted-foreground">
+          SOURCE: {active.source.toUpperCase()}
+        </p>
+      </div>
 
       {/* Rule table */}
       <details className="mt-3">
@@ -559,19 +367,31 @@ export function SafetyPanel({
           </table>
         </div>
       </details>
-      {assessment.officialCopyCaveat && (
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          Regulatory thresholds come from the Coal Mines Regulations, 2017
-          (G.S.R. 1449(E)), checked against a reproduction of the Gazette and an
-          independent copy. The official DGMS copy and later amendments were not
-          checked; confirm them before relying on these rules
-          (docs/safety-sources.md).
-        </p>
-      )}
-      {assessment.unassessedParameters.length > 0 && (
-        <p className="mt-1 text-[11px] leading-relaxed break-words text-muted-foreground">
-          Not checked by any rule: {assessment.unassessedParameters.join(", ")}.
-        </p>
+      {(assessment.officialCopyCaveat ||
+        assessment.unassessedParameters.length > 0) && (
+        <div className="mt-3 flex gap-2 rounded-sm border border-border/70 bg-surface-2/30 p-2.5">
+          <Info
+            className="mt-0.5 size-3.5 shrink-0 text-primary"
+            aria-hidden="true"
+          />
+          <div className="grid gap-1 text-[11px] leading-relaxed text-muted-foreground">
+            {assessment.officialCopyCaveat && (
+              <p>
+                Regulatory thresholds come from the Coal Mines Regulations, 2017
+                (G.S.R. 1449(E)), checked against a reproduction of the Gazette
+                and an independent copy. The official DGMS copy and later
+                amendments were not checked; confirm them before relying on
+                these rules (docs/safety-sources.md).
+              </p>
+            )}
+            {assessment.unassessedParameters.length > 0 && (
+              <p className="break-words">
+                Not checked by any rule:{" "}
+                {assessment.unassessedParameters.join(", ")}.
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Thresholds file */}
@@ -635,7 +455,7 @@ export function SafetyPanel({
         <button
           onClick={() =>
             downloadText(
-              "strata-safety-rules.json",
+              "hazardwatch-safety-rules.json",
               activeConfigJson(),
               "application/json",
             )

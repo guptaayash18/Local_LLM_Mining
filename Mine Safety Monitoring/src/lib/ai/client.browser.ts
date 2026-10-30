@@ -1,6 +1,6 @@
 // AI client for the GitHub Pages edition (static site).
 //
-// 1. Preferred: the STRATA app running on this computer (Node + Ollama),
+// 1. Preferred: the HazardWatch app running on this computer (Node + Ollama),
 //    reached at VITE_LOCAL_AI_URL (default http://127.0.0.1:8080). That app
 //    must allow this page's origin (npm run start:with-pages).
 // 2. Optional: the in-browser model (WebLLM + WebGPU), only after the visitor
@@ -19,7 +19,7 @@ export const LOCAL_AI_URL: string = (
 
 const PREFER_BROWSER_KEY = "strata-use-browser-model";
 const START_HINT =
-  `Start the STRATA app on this computer with "npm run start:with-pages" (Ollama must be running), ` +
+  `Start the HazardWatch app on this computer with "npm run start:with-pages" (Ollama must be running), ` +
   `then retry. It must listen on ${LOCAL_AI_URL}. Use Chrome or Edge; allow access to local network devices if the browser asks.`;
 
 // WebLLM is large; load it on first use so the dashboard appears immediately.
@@ -85,7 +85,7 @@ async function analyzeViaLocal(
       ok: false,
       error: {
         code: "runtime_error",
-        message: `The local STRATA app returned an unexpected response (HTTP ${res.status}).`,
+        message: `The local HazardWatch app returned an unexpected response (HTTP ${res.status}).`,
       },
     };
   } catch {
@@ -98,7 +98,7 @@ async function analyzeViaLocal(
       ok: false,
       error: {
         code: "backend_unavailable",
-        message: "Lost the connection to the local STRATA app.",
+        message: "Lost the connection to the local HazardWatch app.",
         hint: START_HINT,
       },
     };
@@ -122,7 +122,7 @@ export const aiClient: AiClient = {
       installedModels: [],
       localBackendMissing: true,
       browserModelAvailable: gpu,
-      message: `Local AI is not running: the STRATA app was not found at ${LOCAL_AI_URL}.`,
+      message: `Local AI is not running: the HazardWatch app was not found at ${LOCAL_AI_URL}.`,
       hint: START_HINT,
     };
   },
@@ -144,7 +144,7 @@ export const aiClient: AiClient = {
     if (!downloadAllowed) {
       const err = new LocalAiError(
         "backend_unavailable",
-        "Local AI is not running. The AI analyst needs the STRATA app running on this computer.",
+        "Local AI is not running. The AI analyst needs the HazardWatch app running on this computer.",
         START_HINT,
       );
       return {

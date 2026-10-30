@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "name": "STRATA built-in rules — Coal Mines Regulations, 2017",
+  "name": "HazardWatch built-in rules — Coal Mines Regulations, 2017",
   "mineContext": {
     "country": "India",
     "mineType": "underground coal mine",
