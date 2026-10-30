@@ -357,6 +357,22 @@ The regulation text was checked against a reproduction of the Gazette and an
 independent copy. The official DGMS copy and later amendments could not be
 checked; the panel says so under every assessment.
 
+### 2×2 hazard grid (several measuring points)
+
+Add a `Location` column (also accepted: `Point`, `Zone`, `Grid_Point`) with
+one row per point per timestamp, e.g. P1, P2, P3, P4. Then:
+
+- **Charts and statistics** use the average of all points at each timestamp
+  (a 0/1 detection becomes the share of points that saw it).
+- **Safety is checked at each point separately**, because an average can hide
+  one dangerous point. The **HAZARD GRID** shows each point's status (or one
+  parameter's state with **COLOUR BY**); the safety panel and the AI report
+  use the worst point unless you click another tile.
+
+Example: `samples/coal-mine-2x2-grid.csv` (built from the 60-row file:
+P3 = the original fire readings, P4 = a partly affected neighbour, P1 and P2 =
+normal areas; invented values for testing).
+
 ### Starter thresholds for every sensor (easy format)
 
 **`src/config/site-thresholds.json`** gives each of the 18 sensor columns a

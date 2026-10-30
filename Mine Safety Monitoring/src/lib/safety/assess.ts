@@ -920,6 +920,23 @@ export function assessSafety(
   };
 }
 
+/**
+ * Index of the most serious assessment: UNSAFE before CAUTION before SAFE,
+ * then the one with more critical, then warning, results.
+ */
+export function worstIndex(list: SafetyAssessment[]): number {
+  const rank: Record<SafetyStatus, number> = { UNSAFE: 2, CAUTION: 1, SAFE: 0 };
+  const score = (a: SafetyAssessment) =>
+    rank[a.status] * 1e6 +
+    a.evaluations.filter((e) => e.result === "critical").length * 1e3 +
+    a.evaluations.filter((e) => e.result === "warning").length;
+  let best = 0;
+  list.forEach((a, i) => {
+    if (score(a) > score(list[best]!)) best = i;
+  });
+  return best;
+}
+
 const clipText = (t: string, n = 300) =>
   t.length > n ? `${t.slice(0, n - 1)}…` : t;
 

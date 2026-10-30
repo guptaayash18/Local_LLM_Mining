@@ -40,7 +40,16 @@ export interface Dataset {
   categoryNames: string[];
   /** Original CSV text, kept so a run can be saved locally and reloaded. */
   sourceText: string;
+  /**
+   * Set when the file has a location column (e.g. Location = P1..P4): the
+   * rows above are then the average of all points at each timestamp, and
+   * each point's own readings are kept here for its safety check.
+   */
+  grid?: { column: string; points: { id: string; dataset: Dataset }[] };
 }
+
+/** Column names that mark which grid point a row belongs to. */
+const GRID_COLUMN = /^(location|point|grid_?point|zone)$/i;
 
 export interface ChartRow {
   idx: number;
@@ -212,6 +221,14 @@ export function buildDataset(text: string, name: string): Dataset {
     types.set(col, classifyColumn(sample));
   }
 
+  const gridColumn = headers.find(
+    (h) => GRID_COLUMN.test(h) && types.get(h) === "category",
+  );
+  if (gridColumn) {
+    const grid = buildGrid(parsed.data, headers, types, gridColumn, name);
+    if (grid) return { ...grid.averaged, sourceText: text, grid: grid.grid };
+  }
+
   // A time column wins only if it sorts first alphabetically among time columns? No —
   // prefer the earliest column in header order marked as time.
   const timeColumn = headers.find((h) => types.get(h) === "time") ?? null;
@@ -277,6 +294,69 @@ export function buildDataset(text: string, name: string): Dataset {
     numericNames,
     categoryNames,
     sourceText: text,
+  };
+}
+
+/**
+ * Split a multi-point file into one dataset per point, plus a dataset of
+ * per-timestamp averages for the charts and statistics. Detections (0/1)
+ * average to the share of points that saw them.
+ */
+function buildGrid(
+  raw: Record<string, string>[],
+  headers: string[],
+  types: Map<string, ColumnType>,
+  gridColumn: string,
+  name: string,
+): { averaged: Dataset; grid: NonNullable<Dataset["grid"]> } | null {
+  const ids = [
+    ...new Set(
+      raw.map((r) => String(r[gridColumn] ?? "").trim()).filter(Boolean),
+    ),
+  ].sort();
+  if (ids.length < 2) return null;
+  const fields = headers.filter((h) => h !== gridColumn);
+  const timeColumn = fields.find((h) => types.get(h) === "time");
+  const toCsv = (rows: Record<string, unknown>[]) =>
+    Papa.unparse({ fields, data: rows.map((r) => fields.map((f) => r[f])) });
+
+  const points = ids.map((id) => ({
+    id,
+    dataset: buildDataset(
+      toCsv(raw.filter((r) => String(r[gridColumn] ?? "").trim() === id)),
+      `${name} · ${id}`,
+    ),
+  }));
+
+  // Average every numeric field over the points that share a timestamp.
+  const byTime = new Map<string, Record<string, string>[]>();
+  for (const r of raw) {
+    const key = timeColumn ? String(r[timeColumn] ?? "").trim() : "";
+    const list = byTime.get(key) ?? [];
+    list.push(r);
+    byTime.set(key, list);
+  }
+  const averagedRows = [...byTime.values()].map((group) => {
+    const out: Record<string, unknown> = {};
+    for (const f of fields) {
+      if (types.get(f) === "number") {
+        const nums = group
+          .map((r) => (isMissing(r[f]) ? null : parseNumber(r[f])))
+          .filter((v): v is number => v !== null);
+        out[f] = nums.length
+          ? Number(
+              (nums.reduce((a, b) => a + b, 0) / nums.length).toPrecision(10),
+            )
+          : "";
+      } else {
+        out[f] = group.find((r) => !isMissing(r[f]))?.[f] ?? "";
+      }
+    }
+    return out;
+  });
+  return {
+    averaged: buildDataset(toCsv(averagedRows), name),
+    grid: { column: gridColumn, points },
   };
 }
 

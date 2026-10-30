@@ -15,10 +15,12 @@ import {
 } from "lucide-react";
 
 import { UploadZone } from "@/components/upload-zone";
+import { GridMap } from "@/components/grid-map";
 import { SavedRunsPanel } from "@/components/saved-runs";
 import { SafetyPanel, SafetyStatusBadge } from "@/components/safety-panel";
 import {
   assessSafety,
+  worstIndex,
   SAFETY_STATUS_LABEL,
   type SafetyAssessment,
 } from "@/lib/safety/assess";
@@ -60,7 +62,10 @@ export const Route = createFileRoute("/")({
         content:
           "Upload mine-site CSV logs and get multi-parameter trends, correlations, outlier flags and a local AI analyst read in one offline dashboard.",
       },
-      { property: "og:title", content: "HazardWatch — Mine Environment & Hazard Monitor" },
+      {
+        property: "og:title",
+        content: "HazardWatch — Mine Environment & Hazard Monitor",
+      },
       {
         property: "og:description",
         content:
@@ -692,9 +697,28 @@ function Dashboard() {
     return () => clearInterval(id);
   }, []);
   // Rule-based safety classification: deterministic, independent of the AI model.
-  const assessment = useMemo(
-    () => (dataset ? assessSafety(dataset, active.config, { now }) : null),
+  // A grid file is checked point by point; the averaged rows are for charts only.
+  const pointAssessments = useMemo(
+    () =>
+      dataset?.grid?.points.map((p) => ({
+        id: p.id,
+        assessment: assessSafety(p.dataset, active.config, { now }),
+      })) ?? null,
     [dataset, active, now],
+  );
+  const worstPoint = pointAssessments
+    ? worstIndex(pointAssessments.map((p) => p.assessment))
+    : 0;
+  const [pointChoice, setPointChoice] = useState<number | null>(null);
+  const selectedPoint = pointChoice ?? worstPoint;
+  const assessment = useMemo(
+    () =>
+      pointAssessments
+        ? (pointAssessments[selectedPoint]?.assessment ?? null)
+        : dataset
+          ? assessSafety(dataset, active.config, { now })
+          : null,
+    [pointAssessments, selectedPoint, dataset, active, now],
   );
   const [savedRunId, setSavedRunId] = useState<string | null>(null);
   const [runKey, setRunKey] = useState(0);
@@ -702,6 +726,7 @@ function Dashboard() {
 
   const showDataset = (d: Dataset) => {
     setDataset(d);
+    setPointChoice(null);
     setSelected(d.numericNames.slice(0, 5));
     setNormalized(false);
     setLoadError(null);
@@ -831,6 +856,17 @@ function Dashboard() {
             </div>
           )}
 
+          {pointAssessments && (
+            <div className="mt-4">
+              <GridMap
+                points={pointAssessments}
+                selected={selectedPoint}
+                worst={worstPoint}
+                onSelect={setPointChoice}
+              />
+            </div>
+          )}
+
           {loadError && (
             <p className="mt-3 flex items-center gap-2 font-mono text-xs text-negative">
               <TriangleAlert className="size-3.5" />
@@ -944,9 +980,9 @@ function Dashboard() {
       <footer className="border-t border-border bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
           <p className="font-mono text-[10px] tracking-wider text-muted-foreground">
-            HAZARDWATCH // ALL READINGS COMPUTED IN YOUR BROWSER FROM THE UPLOADED
-            LOG · AI READ BY A LOCAL MODEL ON THIS COMPUTER · NOTHING LEAVES
-            THIS MACHINE
+            HAZARDWATCH // ALL READINGS COMPUTED IN YOUR BROWSER FROM THE
+            UPLOADED LOG · AI READ BY A LOCAL MODEL ON THIS COMPUTER · NOTHING
+            LEAVES THIS MACHINE
           </p>
         </div>
       </footer>
