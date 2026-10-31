@@ -49,9 +49,8 @@ See [`training/`](./training/README.md).
 
 | Model | Data | Status |
 | --- | --- | --- |
-| Man-down (fall) detector | SisFall: 38 people, 4,505 recordings | Trained: 98.7 % of falls caught, 99.2 % of normal activities without a false alarm (tested on people not used for training) |
-| Fire & smoke camera model (YOLO11n) | D-Fire: about 21,500 images | Training on Google Colab ([notebook](./training/dfire/dfire_yolo_colab.ipynb)); results go to Google Drive |
+| Fire & smoke camera model (YOLO11n) | D-Fire: about 21,500 images | Training on Google Colab ([notebook](./training/dfire/dfire_yolo_colab.ipynb)); results go to Google Drive. Its output is the existing `YOLO_Flame_Detected` / `YOLO_Smoke_Detected` columns. |
 
-Neither model is wired into the dashboard yet; the gas and temperature
-safety rules and the local Qwen report are independent of them.
-
+A man-down (fall) detector trained on SisFall is kept on the
+[`sisfall-integration`](https://github.com/guptaayash18/Local_LLM_Mining/tree/sisfall-integration)
+branch, separate from the main application, while we evaluate it.
