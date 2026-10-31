@@ -12,7 +12,10 @@
     "CO_ppm": {
       "description": "Carbon monoxide",
       "meaning": "Toxic gas and the earliest sign of a spontaneous heating or fire. Fresh mine air holds only a few ppm. A steady rise means oxidising coal; hundreds of ppm means a serious heating or fire. IDLH is 1200 ppm.",
-      "normal": [0, 10],
+      "normal": [
+        0,
+        10
+      ],
       "warning": 35,
       "critical": 200,
       "worseWhen": "higher",
@@ -21,7 +24,10 @@
     "CH4_vol_pct": {
       "description": "Methane (firedamp)",
       "meaning": "Flammable gas released from coal. Explosive between about 5 and 15 % in air. Above 0.8 % more frequent checks are required; above 1.25 % anywhere, power must be cut off and the regulation is breached.",
-      "normal": [0, 0.5],
+      "normal": [
+        0,
+        0.5
+      ],
       "warning": 0.8,
       "critical": 1.25,
       "worseWhen": "higher",
@@ -30,7 +36,10 @@
     "O2_vol_pct": {
       "description": "Oxygen",
       "meaning": "Fresh air is 20.9 %. A fall means oxygen is being used up by oxidising coal or fire, or displaced by other gases (blackdamp). Below 19 % persons must not work or pass.",
-      "normal": [19.5, 20.95],
+      "normal": [
+        19.5,
+        20.95
+      ],
       "warning": 19.5,
       "critical": 19,
       "worseWhen": "lower",
@@ -39,7 +48,10 @@
     "CO2_vol_pct": {
       "description": "Carbon dioxide",
       "meaning": "Fresh air holds about 0.04 %. Rises with oxidation, fires, blasting fumes and poor ventilation. Above 0.5 % breaches the regulation where persons work or pass.",
-      "normal": [0.03, 0.25],
+      "normal": [
+        0.03,
+        0.25
+      ],
       "critical": 0.5,
       "worseWhen": "higher",
       "source": "Coal Mines Regulations 2017, Reg. 153(2)(b) (verified built-in rule)"
@@ -47,7 +59,10 @@
     "H2_ppm": {
       "description": "Hydrogen",
       "meaning": "Normally absent (about 0.5 ppm in air). Appears when coal is very hot (well above 250 °C) and is itself flammable from 4 % (40 000 ppm). Any sustained hydrogen with rising CO points to an advanced heating or fire.",
-      "normal": [0, 10],
+      "normal": [
+        0,
+        10
+      ],
       "warning": 4000,
       "critical": 10000,
       "worseWhen": "higher",
@@ -56,7 +71,10 @@
     "C2H4_ppm": {
       "description": "Ethylene",
       "meaning": "Not present in fresh air. Released when coal heats beyond the early oxidation stage, so any ethylene confirms a developing heating. In the fire-gas sequence (CO, CO2, H2, ethylene, propylene, acetylene) gases after hydrogen indicate an active fire.",
-      "normal": [0, 0],
+      "normal": [
+        0,
+        0
+      ],
       "warning": 0,
       "worseWhen": "higher",
       "source": "Ray et al., J. Sci. Ind. Res. 63 (2004) 579-591, CIMFR Dhanbad: fire-gas progression"
@@ -64,7 +82,10 @@
     "C2H2_ppm": {
       "description": "Acetylene",
       "meaning": "Not present in fresh air. Last gas in the fire sequence; it appears only at very high temperature, so any acetylene means an active, intense fire.",
-      "normal": [0, 0],
+      "normal": [
+        0,
+        0
+      ],
       "warning": 0,
       "critical": 0.5,
       "worseWhen": "higher",
@@ -73,7 +94,10 @@
     "Coal_Seam_Temp_C": {
       "description": "Coal seam temperature",
       "meaning": "Undisturbed seams in Indian mines are usually 25-40 °C. Coal that warms past about 70-80 °C can run away to self-ignition; above 250 °C the heating is critical.",
-      "normal": [20, 40],
+      "normal": [
+        20,
+        40
+      ],
       "warning": 50,
       "critical": 70,
       "worseWhen": "higher",
@@ -82,7 +106,10 @@
     "Airway_Temp_C": {
       "description": "Airway air temperature (dry-bulb)",
       "meaning": "Heat stress and a sign of a heating upstream. The regulation limits WET-bulb temperature (30.5 °C needs 1 m/s air, 33.5 °C maximum); dry-bulb is always at or above wet-bulb, so using the same numbers here is conservative.",
-      "normal": [20, 30],
+      "normal": [
+        20,
+        30
+      ],
       "warning": 30.5,
       "critical": 33.5,
       "worseWhen": "higher",
@@ -91,7 +118,10 @@
     "Thermal_IR_Max_C": {
       "description": "Hottest surface seen by the thermal (IR) camera",
       "meaning": "Hot spots on coal faces, belts, rollers or equipment. Equipment for coal mines must stay below 150 °C where coal dust can settle on it; coal surfaces above about 70 °C can self-heat.",
-      "normal": [15, 45],
+      "normal": [
+        15,
+        45
+      ],
       "warning": 70,
       "critical": 150,
       "worseWhen": "higher",
@@ -100,7 +130,10 @@
     "Air_Velocity_m_s": {
       "description": "Air velocity",
       "meaning": "Ventilation keeps gas diluted and carries heat away. Too slow and methane or heat builds up. CMR asks at least 1 m/s where wet-bulb exceeds 30.5 °C and at least 30 m/min (0.5 m/s) at the outbye connection from a face.",
-      "normal": [0.5, 4],
+      "normal": [
+        0.5,
+        4
+      ],
       "warning": 1,
       "critical": 0.5,
       "worseWhen": "lower",
@@ -109,14 +142,20 @@
     "Barometric_Pressure_kPa": {
       "description": "Barometric pressure",
       "meaning": "The absolute value is not a hazard. A sudden FALL draws methane and fire gases out of goaves and sealed areas, so watch the trend chart and report any unusual change.",
-      "normal": [95, 106],
+      "normal": [
+        95,
+        106
+      ],
       "worseWhen": "watch",
       "source": "Coal Mines Regulations 2017, Reg. 46(1)(o): report any unusual change (no numeric limit)"
     },
     "Smoke_Obscuration_pct": {
       "description": "Smoke obscuration (how much smoke blocks the sensor's light path)",
       "meaning": "Clean air reads near 0 %. Any persistent smoke is a sign of fire (Reg. 138: on the appearance of smoke, act and withdraw persons). Set these to your sensor maker's alarm levels.",
-      "normal": [0, 1],
+      "normal": [
+        0,
+        1
+      ],
       "warning": 2,
       "critical": 10,
       "worseWhen": "higher",
@@ -125,7 +164,10 @@
     "Grahams_Ratio": {
       "description": "Graham's ratio (CO formed / O2 absorbed × 100, in %)",
       "meaning": "Best single indicator of spontaneous heating. 0.4 % or less is normal; 0.5 % needs a thorough check; 1 % indicates heating; 2 % serious heating approaching fire; 3 % and above an active fire. Unreliable when the oxygen deficiency is under 0.3 %.",
-      "normal": [0, 0.4],
+      "normal": [
+        0,
+        0.4
+      ],
       "warning": 0.5,
       "critical": 1,
       "worseWhen": "higher",
@@ -135,7 +177,10 @@
     "Trickett_Ratio": {
       "description": "Jones-Trickett ratio ((CO2 + 0.75 CO − 0.25 H2) / O2 absorbed)",
       "meaning": "Tells WHAT is burning, not how dangerous it is: 0.4-0.5 methane; 0.5-1.0 coal, oil or conveyor belt; 0.9-1.6 timber. A value above 1.6 fits no fuel and usually means a bad sample or sensor, so check the gas readings.",
-      "normal": [0.4, 1.6],
+      "normal": [
+        0.4,
+        1.6
+      ],
       "warning": 1.6,
       "worseWhen": "higher",
       "source": "Ray et al., J. Sci. Ind. Res. 63 (2004) 579-591, CIMFR Dhanbad: Jones and Trickett fuel ranges (upper end 1.6)"
@@ -143,7 +188,10 @@
     "Explosion_Risk_Index": {
       "description": "Explosion risk index (from your monitoring system)",
       "meaning": "ASSUMED scale: 0 = not explosive, 1 = could become explosive if mixed with air, 2 = explosive mixture (Coward-diagram style). Confirm what your system's numbers mean and edit these levels.",
-      "normal": [0, 0],
+      "normal": [
+        0,
+        0
+      ],
       "warning": 1,
       "critical": 2,
       "worseWhen": "higher",
@@ -161,6 +209,12 @@
       "meaning": "Any detection is a possible fire: follow the fire procedure and have a competent person confirm.",
       "worseWhen": "detected",
       "source": "Coal Mines Regulations 2017, Reg. 138(1) (verified built-in rule)"
+    },
+    "Worker_Fall_Detected": {
+      "description": "Worker fall detected (man-down, wearable motion sensor; 1 = alarm on)",
+      "meaning": "A worker's motion sensor saw a fall: a jolt, a change from upright to lying, and little movement afterwards. The alarm stays on until someone clears it. In a mine this can mean a slip or trip, or a worker overcome by gas: send someone to check at once and look at the gas readings at that point.",
+      "worseWhen": "detected",
+      "source": "HazardWatch man-down detector trained on SisFall (38 people; 98.7 % of falls caught, 99.2 % of normal activities without a false alarm on people not used for training). Provisional until your site's man-down procedure is recorded as verified."
     }
   }
 }

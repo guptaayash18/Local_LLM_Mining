@@ -49,9 +49,9 @@ See [`training/`](./training/README.md).
 
 | Model | Data | Status |
 | --- | --- | --- |
-| Man-down (fall) detector | SisFall: 38 people, 4,505 recordings | Trained: 98.7 % of falls caught, 99.2 % of normal activities without a false alarm (tested on people not used for training) |
+| Man-down (fall) detector | SisFall: 38 people, 4,505 recordings | **Connected**: `Worker_Fall_Detected` column (made by `training/sisfall/detect_falls.py`) in the parameter guide, grid, actions and AI report. 98.7 % of falls caught, 99.2 % of normal activities without a false alarm (tested on people not used for training) |
 | Fire & smoke camera model (YOLO11n) | D-Fire: about 21,500 images | Training on Google Colab ([notebook](./training/dfire/dfire_yolo_colab.ipynb)); results go to Google Drive |
 
-Neither model is wired into the dashboard yet; the gas and temperature
-safety rules and the local Qwen report are independent of them.
+The camera model is not wired into the dashboard yet; its output is the
+existing `YOLO_Flame_Detected` / `YOLO_Smoke_Detected` columns.
 
