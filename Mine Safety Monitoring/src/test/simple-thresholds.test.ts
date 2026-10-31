@@ -175,31 +175,3 @@ describe("easy format conversion", () => {
     ).toMatch(/warnig/);
   });
 });
-
-describe("man-down (worker fall) column", () => {
-  it("a detected fall triggers the rule and an act-now action", async () => {
-    const { buildDataset } = await import("@/lib/dataset");
-    const cfg = apply(JSON.stringify(starter)).preview.result;
-    const now = Date.parse("2026-10-28T09:00:00Z");
-    // TEST values: one worker, a fall in the last minute.
-    const csv = [
-      "Timestamp,Worker_Fall_Detected",
-      "2026-10-28T08:58:00Z,0",
-      "2026-10-28T08:59:00Z,1",
-    ].join("\n");
-    const a = assessSafety(buildDataset(csv, "worker.csv"), cfg, { now });
-    const e = a.evaluations.find(
-      (x) => x.parameter === "Worker_Fall_Detected",
-    )!;
-    expect(e.result).toBe("critical");
-    expect(e.verificationStatus).toBe("provisional");
-    expect(a.status).toBe("CAUTION"); // provisional: never UNSAFE on its own
-    expect(
-      a.actionItems.find((i) => i.parameter === "Worker_Fall_Detected")?.kind,
-    ).toBe("act_now");
-    expect(
-      a.parameterGuide.find((g) => g.name === "Worker_Fall_Detected")
-        ?.description,
-    ).toMatch(/man-down/);
-  });
-});

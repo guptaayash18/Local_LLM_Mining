@@ -371,9 +371,7 @@ one row per point per timestamp, e.g. P1, P2, P3, P4. Then:
 
 Example: `samples/coal-mine-2x2-grid.csv` (built from the 60-row file:
 P3 = the original fire readings, P4 = a partly affected neighbour, P1 and P2 =
-normal areas; invented values for testing). It also has a
-`Worker_Fall_Detected` column from the man-down detector: the worker at P3
-falls at 12:40 (see `training/README.md`).
+normal areas; invented values for testing).
 
 ### Starter thresholds for every sensor (easy format)
 
