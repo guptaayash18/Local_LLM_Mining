@@ -51,3 +51,15 @@ describe("grid file", () => {
     expect(plain.rowCount).toBe(1);
   });
 });
+
+describe("grid facts for the AI", () => {
+  it("says the values are averages and names the assessed point", async () => {
+    const { buildProfile } = await import("@/lib/dataset");
+    const { buildFactsSheet } = await import("@/lib/ai/insights");
+    const d = buildDataset(csv, "grid.csv");
+    const facts = buildFactsSheet(buildProfile(d, undefined, "P3"));
+    expect(facts).toMatch(
+      /VALUES: average of 4 measuring points \(P1, P2, P3, P4\).*point P3/,
+    );
+  });
+});

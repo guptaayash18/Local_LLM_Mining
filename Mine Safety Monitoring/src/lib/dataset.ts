@@ -106,6 +106,8 @@ export interface DatasetProfile {
   samples: { first: string[]; last: string[] };
   /** Rule-based safety classification (computed in the browser from all rows). */
   safety?: SafetyAssessment;
+  /** Grid file: the values are averages of these points; safety is for one. */
+  grid?: { points: string[]; assessedPoint: string | null };
 }
 
 export interface DatasetInsights {
@@ -542,6 +544,7 @@ export function shortLabel(label: string): string {
 export function buildProfile(
   dataset: Dataset,
   safety?: SafetyAssessment,
+  assessedPoint?: string,
 ): DatasetProfile {
   const tcm = dataset.timeColumn;
   const times = tcm ? dataset.rows.map((r) => parseTimestamp(r[tcm])) : null;
@@ -642,6 +645,14 @@ export function buildProfile(
       last: dataset.rows.slice(-3).map(toLine),
     },
     ...(safety ? { safety: compactAssessment(safety) } : {}),
+    ...(dataset.grid
+      ? {
+          grid: {
+            points: dataset.grid.points.map((p) => p.id),
+            assessedPoint: assessedPoint ?? null,
+          },
+        }
+      : {}),
   };
 }
 

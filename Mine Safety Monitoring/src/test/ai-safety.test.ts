@@ -10,7 +10,11 @@ import {
   normaliseInsights,
   planFindings,
 } from "@/lib/ai/insights";
-import { MINING_SYSTEM_PROMPT, buildSystemPrompt } from "@/lib/ai/prompts";
+import {
+  MINING_SYSTEM_PROMPT,
+  buildSystemPrompt,
+  sensorContext,
+} from "@/lib/ai/prompts";
 import type {
   LocalInferenceProvider,
   StructuredRequest,
@@ -60,21 +64,24 @@ const answer = (over: Record<string, unknown> = {}) => ({
 
 describe("mining system prompt", () => {
   it("is mining-specific and states the rule-based status is final", () => {
+    expect(MINING_SYSTEM_PROMPT).toMatch(/HazardWatch analyst/);
     expect(MINING_SYSTEM_PROMPT).toMatch(
-      /Mining Safety and Environmental Analytics Assistant/,
+      /plain, easy-to-understand engineering terms/,
     );
-    expect(MINING_SYSTEM_PROMPT).toMatch(/STATUS is final/);
+    expect(MINING_SYSTEM_PROMPT).toMatch(/SAFETY ASSESSMENT status is final/);
     expect(MINING_SYSTEM_PROMPT).toMatch(
-      /Never claim the mine is certified safe/,
-    );
-    expect(MINING_SYSTEM_PROMPT).toMatch(
-      /The only statuses are SAFE, CAUTION and UNSAFE/,
+      /Never say the mine is certified safe or safe to enter/,
     );
     expect(MINING_SYSTEM_PROMPT).not.toMatch(/INSUFFICIENT/);
   });
 
+  it("is identical for every file, so Ollama can reuse it", () => {
+    expect(buildSystemPrompt()).toBe(MINING_SYSTEM_PROMPT);
+    expect(MINING_SYSTEM_PROMPT).not.toMatch(/CH4_vol_pct|CO_ppm/);
+  });
+
   it("includes sensor names, units, thresholds, verification status and clauses", () => {
-    const sys = buildSystemPrompt(profileFor(1.5));
+    const sys = sensorContext(profileFor(1.5));
     expect(sys).toContain("- CH4_vol_pct (%vol)");
     expect(sys).toContain("- CO_ppm (ppm)");
     expect(sys).toMatch(
@@ -87,9 +94,7 @@ describe("mining system prompt", () => {
   it("says when no threshold could be checked", () => {
     const d = { ...sensorData({ n: 1 }), rows: [], rowCount: 0 };
     expect(
-      buildSystemPrompt(
-        buildProfile(d, assessSafety(d, verifiedCo, { now: NOW })),
-      ),
+      sensorContext(buildProfile(d, assessSafety(d, verifiedCo, { now: NOW }))),
     ).toMatch(/none\. No configured threshold could be checked/);
   });
 
@@ -126,9 +131,9 @@ describe("mining system prompt", () => {
   it("is sent to the model on every analysis", async () => {
     const p = fake([answer()]);
     await runAnalysis(profileFor(1.5), { provider: p });
-    expect(p.calls[0]!.system).toContain(
-      "Mining Safety and Environmental Analytics Assistant",
-    );
+    expect(p.calls[0]!.system).toBe(MINING_SYSTEM_PROMPT);
+    expect(p.calls[0]!.prompt).toContain("SENSORS (name, unit");
+    expect(p.calls[0]!.prompt).toContain("SAFETY STATUS TO REPEAT: UNSAFE");
     expect(p.calls[0]!.prompt).toContain(
       "SAFETY ASSESSMENT (rule-based, final)",
     );

@@ -21,7 +21,7 @@ import type {
   ProfileColumn,
 } from "@/lib/dataset";
 import type { SafetyStatus } from "@/lib/safety/assess";
-import { safetyFacts } from "./prompts";
+import { safetyFacts, sensorContext } from "./prompts";
 
 type Severity = DatasetInsights["findings"][number]["severity"];
 
@@ -171,6 +171,12 @@ export const profileSchema = z.object({
     last: z.array(z.string().max(4000)).max(10),
   }),
   safety: safetySchema.optional(),
+  grid: z
+    .object({
+      points: z.array(shortText).max(50),
+      assessedPoint: shortText.nullable(),
+    })
+    .optional(),
 });
 
 /* ============================ Deterministic findings ============================ */
@@ -345,6 +351,11 @@ export function buildFactsSheet(profile: DatasetProfile): string {
   }
 
   const { kept, omitted } = rankColumns(profile.columns);
+  if (profile.grid) {
+    lines.push(
+      `VALUES: average of ${profile.grid.points.length} measuring points (${profile.grid.points.join(", ")}) at each timestamp. The SAFETY ASSESSMENT is for point ${profile.grid.assessedPoint ?? "unknown"}.`,
+    );
+  }
   lines.push("");
   lines.push(
     "PARAMETERS (direction compares the mean of the last quarter of rows with the first quarter):",
@@ -400,19 +411,15 @@ export function buildUserPrompt(
   profile: DatasetProfile,
   planned: PlannedFinding[],
 ): string {
+  // The fixed instructions and JSON format are in the system prompt.
   return [
+    sensorContext(profile).trim(),
+    "",
     "FACTS:",
     buildFactsSheet(profile),
     "",
-    `FINDINGS ALREADY WRITTEN (give one note for each, using these parameter names): ${planned.map((f) => f.parameter).join(", ")}`,
-    "",
-    "Return JSON with:",
-    "- headline: one sentence, at most 12 words.",
-    "- summary: 2 to 4 sentences on the period and the main movements, directions copied from FACTS.",
-    "- notes: for each finding parameter, one short sentence with a possible explanation or what to check, without numbers. Start with May, Possibly or Could.",
-    "- recommendations: 2 to 5 short, concrete checks for the next shift.",
-    `- safety_status: exactly "${profile.safety?.status ?? "CAUTION"}" (copied from SAFETY ASSESSMENT).`,
-    "- safety_explanation: 1 to 3 sentences explaining that status from the SAFETY ASSESSMENT evidence.",
+    `FINDING PARAMETERS (one note each): ${planned.map((f) => f.parameter).join(", ")}`,
+    `SAFETY STATUS TO REPEAT: ${profile.safety?.status ?? "CAUTION"}`,
   ].join("\n");
 }
 

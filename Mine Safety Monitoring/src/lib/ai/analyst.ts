@@ -104,7 +104,7 @@ export async function runAnalysis(
     };
   }
   const prompt = buildUserPrompt(profile, planned);
-  const system = buildSystemPrompt(profile);
+  const system = buildSystemPrompt();
   let totalMs = 0;
   let lastError: unknown = null;
   let best: NormaliseOutcome | null = null;

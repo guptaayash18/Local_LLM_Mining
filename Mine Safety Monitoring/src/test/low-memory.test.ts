@@ -8,7 +8,7 @@ import {
   planFindings,
   profileSchema,
 } from "@/lib/ai/insights";
-import { buildSystemPrompt } from "@/lib/ai/prompts";
+import { buildSystemPrompt, sensorContext } from "@/lib/ai/prompts";
 import { loadLocalAiConfig, parseKeepAlive } from "@/lib/ai/config.server";
 import { contextFor } from "@/lib/ai/ollama.server";
 import { buildProfile } from "@/lib/dataset";
@@ -45,15 +45,17 @@ const fire = sensorData({
 describe("prompt for a file with all 18 sensors flagged", () => {
   const a = assessSafety(fire, cfg, { now: NOW });
   const profile = buildProfile(fire, a);
-  const system = buildSystemPrompt(profile);
+  const system = buildSystemPrompt();
+  const sensors = sensorContext(profile);
   const user = buildUserPrompt(profile, planFindings(profile));
 
   it("explains every sensor with its meaning and normal range", () => {
-    expect(system).toMatch(
+    expect(user).toContain(sensors.trim());
+    expect(sensors).toMatch(
       /- CO_ppm \(ppm\): Carbon monoxide; NORMAL 0 to 10 ppm/,
     );
-    expect(system).toMatch(/YOLO_Flame_Detected .*NORMAL not detected/);
-    expect(system).toMatch(/Background for flagged sensors:/);
+    expect(sensors).toMatch(/YOLO_Flame_Detected .*NORMAL not detected/);
+    expect(sensors).toMatch(/Background for flagged sensors:/);
   });
 
   it("keeps the guide when the server validates the profile", () => {
@@ -62,7 +64,7 @@ describe("prompt for a file with all 18 sensors flagged", () => {
       profile.safety?.parameterGuide,
     );
     expect(parsed.safety?.parameterGuide.length).toBeGreaterThan(10);
-    expect(buildSystemPrompt(parsed as typeof profile)).toBe(system);
+    expect(sensorContext(parsed as typeof profile)).toBe(sensors);
   });
 
   it("stays well inside an 8192-token window", () => {

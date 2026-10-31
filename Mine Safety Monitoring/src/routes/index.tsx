@@ -192,8 +192,11 @@ function AnalystPanel({
   analysis,
   runKey,
   onAnalysis,
+  pointId,
 }: {
   dataset: Dataset | null;
+  /** Grid file: the point whose assessment is shown and explained. */
+  pointId?: string | undefined;
   /** Rule-based safety classification for this dataset (sent to the model to explain). */
   assessment: SafetyAssessment | null;
   analysis: AnalysisRecord | null;
@@ -209,6 +212,8 @@ function AnalystPanel({
   datasetRef.current = dataset;
   const assessmentRef = useRef(assessment);
   assessmentRef.current = assessment;
+  const pointRef = useRef(pointId);
+  pointRef.current = pointId;
 
   const run = useMutation({
     mutationFn: async ({
@@ -250,7 +255,11 @@ function AnalystPanel({
 
   const start = (d: Dataset) =>
     run.mutate({
-      profile: buildProfile(d, assessmentRef.current ?? undefined),
+      profile: buildProfile(
+        d,
+        assessmentRef.current ?? undefined,
+        pointRef.current,
+      ),
       dataset: d,
     });
 
@@ -973,6 +982,7 @@ function Dashboard() {
             analysis={analysis}
             runKey={runKey}
             onAnalysis={setAnalysis}
+            pointId={pointAssessments?.[selectedPoint]?.id}
           />
         </section>
       </main>
