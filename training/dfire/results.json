@@ -1,0 +1,22 @@
+{
+  "model": "YOLO11n",
+  "dataset": "D-Fire",
+  "classes": {"0": "smoke", "1": "fire"},
+  "train_images": 17221,
+  "val_images": 4302,
+  "epochs_trained": 39,
+  "best_epoch": 39,
+  "metrics": {
+    "mAP50": 0.768,
+    "mAP50_95": 0.443,
+    "precision": 0.775,
+    "recall": 0.701
+  },
+  "weights": {
+    "best_pt": "MyDrive/Hazardwatch/dfire/train/weights/best.pt",
+    "last_pt": "MyDrive/Hazardwatch/dfire/train/weights/last.pt",
+    "note": "Download best.pt from Google Drive (link in training/README.md). ONNX export not yet run — run the export cell in dfire_yolo_colab.ipynb."
+  },
+  "trained_on": "Google Colab T4 GPU",
+  "training_date": "2026-10-31"
+}

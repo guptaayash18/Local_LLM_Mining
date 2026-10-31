@@ -49,7 +49,7 @@ See [`training/`](./training/README.md).
 
 | Model | Data | Status |
 | --- | --- | --- |
-| Fire & smoke camera model (YOLO11n) | D-Fire: about 21,500 images | Training on Google Colab ([notebook](./training/dfire/dfire_yolo_colab.ipynb)); results go to Google Drive. Its output is the existing `YOLO_Flame_Detected` / `YOLO_Smoke_Detected` columns. |
+| Fire & smoke camera model (YOLO11n) | D-Fire: 17,221 train / 4,302 val images | **Trained** — 39 epochs on Colab T4. mAP50 **76.8%**, mAP50-95 44.3%. `best.pt` in Google Drive (`MyDrive/Hazardwatch/dfire/train/weights/`). ([notebook](./training/dfire/dfire_yolo_colab.ipynb), [results](./training/dfire/results.json)) |
 
 A man-down (fall) detector trained on SisFall is kept on the
 [`sisfall-integration`](https://github.com/guptaayash18/Local_LLM_Mining/tree/sisfall-integration)
