@@ -117,6 +117,22 @@ const SEVERITY_LABEL: Record<
 
 /* ---------------- Local AI status ---------------- */
 
+/** Minutes:seconds since this element appeared (the analysis started). */
+function Elapsed() {
+  const [start] = useState(() => Date.now());
+  const [now, setNow] = useState(start);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const s = Math.floor((now - start) / 1000);
+  return (
+    <span className="text-foreground">
+      {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}
+    </span>
+  );
+}
+
 function useAiStatus() {
   return useQuery({
     queryKey: ["ai-status"],
@@ -315,8 +331,9 @@ function AnalystPanel({
           </div>
         ) : (
           <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-            Statistical profile compiled · local model reading now (the first
-            run can take a minute)
+            Local model writing the report · <Elapsed /> elapsed · on a laptop
+            CPU this usually takes 1–4 minutes. Reloading the page, loading a
+            file again or RE-RUN starts it over.
           </p>
         )}
         <button

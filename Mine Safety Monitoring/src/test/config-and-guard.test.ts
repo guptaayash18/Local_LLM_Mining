@@ -75,3 +75,17 @@ describe("host guard", () => {
     ).toBe(true);
   });
 });
+
+describe("cancelled requests are not logged as errors", () => {
+  it("recognises an AbortError, also wrapped as a 500 cause", async () => {
+    const { isAbortError } = await import("@/lib/error-capture");
+    const abort = new DOMException("This operation was aborted", "AbortError");
+    const wrapped = Object.assign(new Error("HTTPError", { cause: abort }), {
+      status: 500,
+    });
+    expect(isAbortError(abort)).toBe(true);
+    expect(isAbortError(wrapped)).toBe(true);
+    expect(isAbortError(new Error("aborted"))).toBe(true);
+    expect(isAbortError(new Error("real failure"))).toBe(false);
+  });
+});

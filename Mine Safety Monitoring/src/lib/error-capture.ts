@@ -20,19 +20,26 @@ export function describeError(error: unknown): string {
   let current: unknown = error;
   for (let depth = 0; depth < CAUSE_DEPTH_LIMIT && current != null; depth++) {
     if (!(current instanceof Error)) {
-      parts.push(typeof current === "string" ? current : safeStringify(current));
+      parts.push(
+        typeof current === "string" ? current : safeStringify(current),
+      );
       break;
     }
     const label = depth === 0 ? "" : "caused by: ";
     const status = describeStatus(current);
-    parts.push(`${label}${current.stack ?? `${current.name}: ${current.message}`}${status}`);
+    parts.push(
+      `${label}${current.stack ?? `${current.name}: ${current.message}`}${status}`,
+    );
     current = current.cause;
   }
   return parts.join("\n").slice(0, DESCRIPTION_LENGTH_LIMIT);
 }
 
 function describeStatus(error: Error): string {
-  const { status, statusCode } = error as { status?: unknown; statusCode?: unknown };
+  const { status, statusCode } = error as {
+    status?: unknown;
+    statusCode?: unknown;
+  };
   const value = status ?? statusCode;
   return typeof value === "number" ? ` (status ${value})` : "";
 }
@@ -53,7 +60,38 @@ function isErrorLike(value: unknown): value is Error {
 // unhandled-error logging, which this file cannot hook directly — are both
 // recorded for consumeLastCapturedError and expanded before serialization.
 const originalConsoleError = console.error.bind(console);
+
+/** True for an AbortError, also when wrapped (h3 reports it as a 500 with the AbortError as cause). */
+export function isAbortError(error: unknown): boolean {
+  for (
+    let e = error, d = 0;
+    e instanceof Error && d < CAUSE_DEPTH_LIMIT;
+    e = e.cause, d++
+  )
+    // Node reports a closed incoming request as Error("aborted").
+    if (e.name === "AbortError" || e.message === "aborted") return true;
+  return false;
+}
+
+// When the browser stops waiting for a running request (page reloaded, a new
+// file loaded, RE-RUN or CANCEL), h3 logs an "AbortError … (status 500)" stack.
+// That is a normal cancellation, not a failure: say so in one line, at most
+// once every few seconds (h3 logs each cancellation two or three times).
+let lastAbortNote = 0;
+function noteCancelled() {
+  if (Date.now() - lastAbortNote < 5_000) return;
+  lastAbortNote = Date.now();
+  console.log(
+    "[local-ai] request cancelled by the browser (page reloaded, new file, RE-RUN or CANCEL). Nothing is wrong.",
+  );
+}
+
 console.error = (...args: unknown[]) => {
+  const abort = args.find(isAbortError);
+  if (abort) {
+    record(abort); // lets server.ts recognise the follow-up 500 as a cancellation
+    return noteCancelled();
+  }
   const expanded = args.map((arg) => {
     if (!isErrorLike(arg)) return arg;
     record(arg);
@@ -63,7 +101,9 @@ console.error = (...args: unknown[]) => {
 };
 
 if (typeof globalThis.addEventListener === "function") {
-  globalThis.addEventListener("error", (event) => record((event as ErrorEvent).error ?? event));
+  globalThis.addEventListener("error", (event) =>
+    record((event as ErrorEvent).error ?? event),
+  );
   globalThis.addEventListener("unhandledrejection", (event) =>
     record((event as PromiseRejectionEvent).reason),
   );

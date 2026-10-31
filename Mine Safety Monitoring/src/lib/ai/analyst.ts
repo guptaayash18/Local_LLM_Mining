@@ -141,7 +141,7 @@ export async function runAnalysis(
       );
     } catch (error) {
       const code = error instanceof LocalAiError ? error.code : "unknown";
-      log("error", { code, attempt });
+      log(code === "cancelled" ? "cancelled" : "error", { code, attempt });
       if (error instanceof LocalAiError && error.code === "bad_response") {
         lastError = error;
         continue;
