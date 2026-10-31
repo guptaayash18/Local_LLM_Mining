@@ -158,7 +158,10 @@ export class OllamaProvider implements LocalInferenceProvider {
   ): Promise<StructuredResult> {
     const hints = setupHint(this.model);
     const started = Date.now();
-    const timeout = AbortSignal.timeout(this.config.timeoutMs);
+    const timeout =
+      this.config.timeoutMs > 0
+        ? AbortSignal.timeout(this.config.timeoutMs)
+        : undefined;
     const signal = combineSignals([request.signal, timeout]);
 
     let response: Response;
@@ -169,7 +172,9 @@ export class OllamaProvider implements LocalInferenceProvider {
         signal,
         body: JSON.stringify({
           model: this.model,
-          stream: false,
+          // Streamed: Node's fetch gives up after 5 minutes without response
+          // headers, and a long report on a slow CPU can take longer than that.
+          stream: true,
           format: request.jsonSchema,
           keep_alive: this.config.keepAlive,
           options: {
@@ -191,11 +196,11 @@ export class OllamaProvider implements LocalInferenceProvider {
       if (request.signal?.aborted) {
         throw new LocalAiError("cancelled", "The analysis was cancelled.");
       }
-      if (timeout.aborted || isAbortError(error)) {
+      if (timeout?.aborted || isAbortError(error)) {
         throw new LocalAiError(
           "timeout",
           `The local model did not answer within ${Math.round(this.config.timeoutMs / 1000)} s.`,
-          "The first request after starting Ollama loads the model and is slower. Retry, or raise OLLAMA_TIMEOUT_MS.",
+          "Remove OLLAMA_TIMEOUT_MS (no limit) or raise it, then retry.",
         );
       }
       throw new LocalAiError(
@@ -227,18 +232,32 @@ export class OllamaProvider implements LocalInferenceProvider {
       );
     }
 
-    let content: string;
+    // Streamed reply: one JSON object per line, each with a piece of the text.
+    let content = "";
     let servedModel = this.model;
     try {
-      const body = (await response.json()) as {
-        message?: { content?: unknown };
-        model?: unknown;
-      };
-      if (typeof body.message?.content !== "string")
-        throw new Error("no content");
-      content = body.message.content;
-      if (typeof body.model === "string") servedModel = body.model;
-    } catch {
+      const text = await response.text();
+      for (const line of text.split("\n")) {
+        if (!line.trim()) continue;
+        const chunk = JSON.parse(line) as {
+          message?: { content?: unknown };
+          model?: unknown;
+          error?: unknown;
+        };
+        if (typeof chunk.error === "string")
+          throw new LocalAiError(
+            "runtime_error",
+            `Ollama returned an error: ${chunk.error}`,
+          );
+        if (typeof chunk.message?.content === "string")
+          content += chunk.message.content;
+        if (typeof chunk.model === "string") servedModel = chunk.model;
+      }
+      if (!content) throw new Error("no content");
+    } catch (error) {
+      if (error instanceof LocalAiError) throw error;
+      if (request.signal?.aborted)
+        throw new LocalAiError("cancelled", "The analysis was cancelled.");
       throw new LocalAiError(
         "bad_response",
         "Ollama sent a response the app could not read.",

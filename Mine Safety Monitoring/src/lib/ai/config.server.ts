@@ -12,7 +12,7 @@ export interface LocalAiConfig {
   ollamaBaseUrl: string;
   /** Ollama model tag, e.g. qwen2.5:1.5b */
   model: string;
-  /** Hard limit for one analysis request, in milliseconds. */
+  /** Limit for one model call in milliseconds; 0 = no limit (the default: the report always finishes). */
   timeoutMs: number;
   /** Context window passed to Ollama (num_ctx). */
   numCtx: number;
@@ -130,7 +130,7 @@ export function loadLocalAiConfig(
       allowNonLoopback,
     ),
     model: parseModelName(env["OLLAMA_MODEL"] || DEFAULT_OLLAMA_MODEL),
-    timeoutMs: readInt(env["OLLAMA_TIMEOUT_MS"], 420_000, 5_000, 1_800_000),
+    timeoutMs: readInt(env["OLLAMA_TIMEOUT_MS"], 0, 0, 86_400_000),
     numCtx: readInt(env["OLLAMA_NUM_CTX"], 8192, 2048, 131_072),
     temperature: readFloat(env["OLLAMA_TEMPERATURE"], 0.2, 0, 2),
     keepAlive: parseKeepAlive(env["OLLAMA_KEEP_ALIVE"]),

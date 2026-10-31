@@ -238,7 +238,8 @@ function AnalystPanel({
       profile: DatasetProfile;
       dataset: Dataset;
     }) => {
-      abortRef.current?.abort();
+      // An earlier run is not cancelled: it finishes on the server, and its
+      // answer is ignored if another file is on screen by then.
       const controller = new AbortController();
       abortRef.current = controller;
       const res: AnalyzeResult = await aiClient.analyze(
@@ -269,19 +270,22 @@ function AnalystPanel({
     },
   });
 
-  const start = (d: Dataset) =>
+  const start = (d: Dataset, rerun = false) => {
+    const profile = buildProfile(
+      d,
+      assessmentRef.current ?? undefined,
+      pointRef.current,
+    );
     run.mutate({
-      profile: buildProfile(
-        d,
-        assessmentRef.current ?? undefined,
-        pointRef.current,
-      ),
+      // RE-RUN asks for a fresh report; otherwise the server may reuse a
+      // running or recent report for the same file.
+      profile: rerun ? { ...profile, rerun: Date.now() } : profile,
       dataset: d,
     });
+  };
 
-  // A new dataset cancels any analysis still running for the old one.
+  // A new dataset shows its own analysis; an earlier one keeps running on the server.
   useEffect(() => {
-    abortRef.current?.abort();
     run.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataset]);
@@ -290,8 +294,6 @@ function AnalystPanel({
     if (runKey > 0 && datasetRef.current) start(datasetRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runKey]);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
 
   if (!dataset) {
     return (
@@ -332,8 +334,9 @@ function AnalystPanel({
         ) : (
           <p className="mt-1 font-mono text-[10px] text-muted-foreground">
             Local model writing the report · <Elapsed /> elapsed · on a laptop
-            CPU this usually takes 1–4 minutes. Reloading the page, loading a
-            file again or RE-RUN starts it over.
+            CPU this usually takes 1–4 minutes, with no time limit. It keeps
+            running on this computer even if you reload the page; loading the
+            same file again picks it up.
           </p>
         )}
         <button
@@ -343,7 +346,7 @@ function AnalystPanel({
           }}
           className="mt-3 rounded-sm border border-border bg-surface-2 px-3 py-1 font-mono text-[10px] tracking-wider text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
         >
-          CANCEL
+          STOP WAITING
         </button>
       </div>
     );
@@ -351,7 +354,7 @@ function AnalystPanel({
 
   const rerunButton = (label: string) => (
     <button
-      onClick={() => start(dataset)}
+      onClick={() => start(dataset, true)}
       className="flex items-center gap-2 rounded-sm border border-border bg-surface px-3 py-1.5 font-mono text-[11px] tracking-wider text-foreground transition-colors hover:border-primary/60"
     >
       <RefreshCw className="size-3.5" />

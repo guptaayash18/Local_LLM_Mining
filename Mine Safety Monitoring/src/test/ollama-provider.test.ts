@@ -30,7 +30,7 @@ async function codeOf(p: Promise<unknown>) {
 }
 
 describe("OllamaProvider.generateStructured", () => {
-  it("posts to the local /api/chat with the model, schema and no streaming", async () => {
+  it("posts to the local /api/chat with the model, schema and streaming", async () => {
     const fetchImpl = vi.fn(async () =>
       json({ model: "qwen2.5:1.5b", message: { content: '{"headline":"x"}' } }),
     );
@@ -45,13 +45,35 @@ describe("OllamaProvider.generateStructured", () => {
     const body = JSON.parse(String(init.body));
     expect(body).toMatchObject({
       model: "qwen2.5:1.5b",
-      stream: false,
+      stream: true,
       format: { type: "object" },
     });
     expect(body.messages.map((m: { role: string }) => m.role)).toEqual([
       "system",
       "user",
     ]);
+  });
+
+  it("joins a streamed reply (one JSON object per line)", async () => {
+    const lines = [
+      { model: "qwen2.5:1.5b", message: { content: '{"head' } },
+      { message: { content: 'line":"x"}' } },
+      { done: true },
+    ]
+      .map((l) => JSON.stringify(l))
+      .join("\n");
+    const result = await provider(
+      async () => new Response(lines),
+    ).generateStructured(request);
+    expect(result.value).toEqual({ headline: "x" });
+    expect(result.model).toBe("qwen2.5:1.5b");
+  });
+
+  it("has no time limit unless OLLAMA_TIMEOUT_MS is set", () => {
+    expect(config.timeoutMs).toBe(0);
+    expect(loadLocalAiConfig({ OLLAMA_TIMEOUT_MS: "600000" }).timeoutMs).toBe(
+      600_000,
+    );
   });
 
   it("reports 'unreachable' when Ollama is not running", async () => {

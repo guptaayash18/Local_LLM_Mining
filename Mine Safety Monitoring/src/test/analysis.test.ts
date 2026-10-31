@@ -1,4 +1,5 @@
 // @vitest-environment node
+import type { AnalyzeResult } from "@/lib/ai/types";
 import { describe, expect, it } from "vitest";
 
 import { runLocalAnalysis } from "@/lib/ai/analyst.server";
@@ -298,5 +299,37 @@ describe("dataset", () => {
     const d = buildDemoDataset();
     const again = buildDataset(d.sourceText, d.name);
     expect(buildProfile(again)).toEqual(buildProfile(d));
+  });
+});
+
+describe("a report is never abandoned", () => {
+  it("a second request for the same file joins the running report", async () => {
+    const { sharedRun } = await import("@/lib/ai/analyst.server");
+    const finishers: ((r: AnalyzeResult) => void)[] = [];
+    const start = () =>
+      new Promise<AnalyzeResult>((r) => {
+        finishers.push(r);
+      });
+    const input = { name: "shared-run-test.csv", rows: 1 };
+    const first = sharedRun(input, start);
+    const again = sharedRun(input, start); // e.g. after a page reload
+    expect(finishers).toHaveLength(1);
+    expect(again).toBe(first);
+    // The same file a minute later: only the data age differs.
+    const aged = { ...input, safety: { status: "UNSAFE", dataAgeMinutes: 9 } };
+    const agedLater = {
+      ...aged,
+      safety: { ...aged.safety, dataAgeMinutes: 10 },
+    };
+    expect(sharedRun(agedLater, start)).toBe(sharedRun(aged, start));
+    expect(finishers).toHaveLength(2);
+    void sharedRun({ ...input, rerun: 1 }, start); // RE-RUN starts afresh
+    expect(finishers).toHaveLength(3);
+    const done: AnalyzeResult = {
+      ok: false,
+      error: { code: "runtime_error", message: "test" },
+    };
+    finishers[0]!(done);
+    expect(await again).toBe(done);
   });
 });

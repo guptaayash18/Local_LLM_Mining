@@ -74,15 +74,15 @@ export function isAbortError(error: unknown): boolean {
 }
 
 // When the browser stops waiting for a running request (page reloaded, a new
-// file loaded, RE-RUN or CANCEL), h3 logs an "AbortError … (status 500)" stack.
-// That is a normal cancellation, not a failure: say so in one line, at most
+// file loaded, or STOP WAITING), h3 logs an "AbortError … (status 500)" stack.
+// That is normal (the report itself keeps running), not a failure: say so in one line, at most
 // once every few seconds (h3 logs each cancellation two or three times).
 let lastAbortNote = 0;
 function noteCancelled() {
   if (Date.now() - lastAbortNote < 5_000) return;
   lastAbortNote = Date.now();
   console.log(
-    "[local-ai] request cancelled by the browser (page reloaded, new file, RE-RUN or CANCEL). Nothing is wrong.",
+    "[local-ai] the browser stopped waiting (page reloaded, closed or STOP WAITING). Nothing is wrong: the report keeps running and appears when the same file is loaded again.",
   );
 }
 

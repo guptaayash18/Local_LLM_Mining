@@ -65,7 +65,7 @@ export default {
         const { runLocalAnalysis, getLocalAiStatus } =
           await import("./lib/ai/analyst.server");
         const res = await handleLocalApi(request, {
-          analyze: (input, signal) => runLocalAnalysis(input, { signal }),
+          analyze: (input) => runLocalAnalysis(input),
           status: () => getLocalAiStatus(),
         });
         if (res) return res;

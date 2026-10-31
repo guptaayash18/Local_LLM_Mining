@@ -209,7 +209,7 @@ All settings are optional environment variables. Put them in `.env` (see
 | --- | --- | --- |
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama address. Only loopback addresses are accepted. |
 | `OLLAMA_MODEL` | `qwen2.5:1.5b` | Any model pulled into Ollama. |
-| `OLLAMA_TIMEOUT_MS` | `420000` | Max time for one model call (7 min, for a laptop CPU). |
+| `OLLAMA_TIMEOUT_MS` | `0` (no limit) | Time limit for one model call. By default the report always finishes; reloading the page or loading the same file again picks it up. |
 | `OLLAMA_NUM_CTX` | `8192` | Context window passed to the model. Raised automatically for one request (up to 16384) if the prompt would not fit. |
 | `OLLAMA_TEMPERATURE` | `0.2` | Lower is more literal. |
 | `OLLAMA_KEEP_ALIVE` | `5m` | How long the model stays in memory after an analysis (`0` = unload at once). |
@@ -462,7 +462,7 @@ Saved runs live in your browser's IndexedDB for the address
 | --- | --- |
 | Badge says **LOCAL AI OFFLINE** | Start Ollama (open the app, or `ollama serve`). Run `npm run doctor`. |
 | Badge says **MODEL NOT DOWNLOADED** | `ollama pull qwen2.5:1.5b` (or the model in `OLLAMA_MODEL`), while online. |
-| "did not answer within 420 s" | The first run loads the model, which is slow on some PCs. Retry, close other programs, or raise `OLLAMA_TIMEOUT_MS`. |
+| "did not answer within … s" | Only when `OLLAMA_TIMEOUT_MS` is set. Remove it (no limit) or raise it. |
 | Summary says it was "written from the statistics" | The model contradicted the data twice. Click **RE-RUN**, or use a larger model. |
 | `npm install` fails with `Cannot read properties of null (reading 'edgesOut')` | npm 10 bug. Use `npm ci` (uses the lockfile), or `npm install --legacy-peer-deps`, or upgrade npm (`npm i -g npm@11`). |
 | `Port 8080 is in use` | Close the other program, or set `PORT=8090`. Saved runs are per port. |

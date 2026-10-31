@@ -106,6 +106,8 @@ export interface DatasetProfile {
   samples: { first: string[]; last: string[] };
   /** Rule-based safety classification (computed in the browser from all rows). */
   safety?: SafetyAssessment;
+  /** Set by RE-RUN so the server starts a fresh report instead of reusing one. */
+  rerun?: number;
   /** Grid file: the values are averages of these points; safety is for one. */
   grid?: { points: string[]; assessedPoint: string | null };
 }

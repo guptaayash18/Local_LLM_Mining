@@ -12,9 +12,7 @@ echo  HazardWatch - starting from: %CD%
 echo.
 
 if "%OLLAMA_MODEL%"=="" set OLLAMA_MODEL=qwen2.5:1.5b
-REM A laptop CPU can need several minutes for the first report (model load +
-REM reading about 5000 tokens of facts). Allow up to 7 minutes.
-if "%OLLAMA_TIMEOUT_MS%"=="" set OLLAMA_TIMEOUT_MS=420000
+REM No time limit for the AI report: it always finishes (OLLAMA_TIMEOUT_MS unset).
 
 REM Memory settings for an 8 GB computer (used when this script starts Ollama).
 set OLLAMA_NUM_PARALLEL=1
