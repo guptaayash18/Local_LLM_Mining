@@ -760,7 +760,11 @@ export function assessSafety(
   const add = (kind: ActionKind, text: string, parameter?: string) =>
     items.push({ kind, text, ...(parameter ? { parameter } : {}) });
   for (const e of evaluations) {
-    if (e.result === "critical" && e.operator === "is_true") {
+    if (
+      e.result === "critical" &&
+      e.operator === "is_true" &&
+      e.verificationStatus !== "provisional"
+    ) {
       add(
         "act_now",
         `Treat ${e.parameter} as a possible fire (${e.sourceClause.split(":")[0]}): follow the site fire procedure, withdraw persons as required, and have a competent person confirm.`,
@@ -774,7 +778,13 @@ export function assessSafety(
         e.result === "critical" ? e.critical : e.warning,
         e.unit,
       );
-      if (e.result === "critical")
+      if (e.operator === "is_true")
+        add(
+          "act_now",
+          `Send someone to check ${e.parameter} now: positive detection (provisional rule). Confirm on site and follow the site procedure.`,
+          e.parameter,
+        );
+      else if (e.result === "critical")
         add(
           "check_urgently",
           `Check ${e.parameter} urgently: it is past the provisional critical level (${limit}). Confirm with an independent instrument and follow the site procedure.`,
@@ -844,7 +854,11 @@ export function assessSafety(
   // Actions that come from provisional rules (marked when they were added).
   const provisionalTexts = new Set(
     actionItems
-      .filter((i) => /provisional (critical|warning) level/.test(i.text))
+      .filter((i) =>
+        /provisional (critical|warning) level|\(provisional rule\)/.test(
+          i.text,
+        ),
+      )
       .map((i) => i.text),
   );
   const actions = [

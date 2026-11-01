@@ -49,8 +49,8 @@ See [`training/`](./training/README.md).
 
 | Model | Data | Status |
 | --- | --- | --- |
-| Fire & smoke camera model (YOLO11n) | D-Fire: about 21,500 images | Trained — results on the [`dfire-training`](https://github.com/guptaayash18/Local_LLM_Mining/tree/dfire-training) branch (mAP50 76.8%). Notebook: [dfire_yolo_colab.ipynb](./training/dfire/dfire_yolo_colab.ipynb). |
+| Fire & smoke camera model (YOLO11n) | D-Fire: 17,221 train / 4,302 val images | **Trained** — mAP50 **76.8%**, mAP50-95 44.3%. `best.pt` in Google Drive. ([results](./training/dfire/results.json), [notebook](./training/dfire/dfire_yolo_colab.ipynb), [branch](https://github.com/guptaayash18/Local_LLM_Mining/tree/dfire-training)) |
+| Man-down fall detector (HistGradientBoosting) | SisFall (19 subjects, 200 Hz wearable) | **Trained** — Sensitivity **98.7%**, Specificity 99.2%. ([results](./training/sisfall/results.json), [branch](https://github.com/guptaayash18/Local_LLM_Mining/tree/sisfall-integration)) |
 
-A man-down (fall) detector trained on SisFall is kept on the
-[`sisfall-integration`](https://github.com/guptaayash18/Local_LLM_Mining/tree/sisfall-integration)
-branch, separate from the main application, while we evaluate it.
+> Dashboard integration for the fall detector is on the `sisfall-integration` branch,
+> pending evaluation of whether worker-motion data belongs with the environmental parameters.
