@@ -3,7 +3,7 @@
 | Model | Data | Status | Results |
 | --- | --- | --- | --- |
 | Fire & smoke camera model (YOLO11n) | D-Fire (17,221 train / 4,302 val images; class 0 = smoke, 1 = fire) | **Trained** — 39 epochs on Google Colab T4 | mAP50 **76.8%**, mAP50-95 44.3%, P 77.5%, R 70.1% |
-| Man-down fall detector (HistGradientBoosting) | SisFall (accelerometer + gyroscope; 19 subjects) | **Trained** — subject-wise cross-validation | Sensitivity **98.7%**, Specificity 99.2% |
+| Man-down fall detector (HistGradientBoosting) | SisFall (accelerometer + gyroscope; 38 people, 4,505 recordings) | **Trained** — subject-wise cross-validation | Sensitivity **98.7%**, Specificity 99.2% |
 
 ## Fire & smoke detector (D-Fire / YOLO11n)
 
