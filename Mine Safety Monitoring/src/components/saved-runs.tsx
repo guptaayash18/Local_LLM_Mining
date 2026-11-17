@@ -126,7 +126,7 @@ export function SavedRunsPanel({
 
       {list.length === 0 ? (
         <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-          Nothing saved yet. Saved runs stay on this computer and survive
+          Nothing saved yet. Saved runs stay on this device and survive
           restarts.
         </p>
       ) : (

@@ -43,6 +43,19 @@ npm run build
 npm start        # then open http://127.0.0.1:8080
 ```
 
+## Install on a phone (Android)
+
+The web edition installs as an app:
+
+1. On the phone, open https://guptaayash18.github.io/Local_LLM_Mining/ in **Chrome**.
+2. Tap **⋮ → Install app** (or **Add to home screen → Install**).
+3. Open **HazardWatch** from the home screen. Load a CSV, then tap
+   **USE IN-BROWSER MODEL INSTEAD** once: the Qwen model downloads to the phone
+   (about 1 GB, use Wi-Fi). After that the dashboard and the AI report work offline.
+
+Needs Chrome on Android 12 or later (WebGPU). Phones that report less than
+8 GB of memory get the smaller Qwen 2.5 0.5B model automatically.
+
 ## Models trained for HazardWatch
 
 See [`training/`](./training/README.md).

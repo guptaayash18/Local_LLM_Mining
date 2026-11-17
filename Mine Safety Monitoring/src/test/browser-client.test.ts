@@ -112,6 +112,24 @@ describe("GitHub Pages AI client", () => {
     expect(state.loaded).toBe(false);
   });
 
+  it("on a phone, skips the PC check and points to the in-phone model", async () => {
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile Safari/537.36",
+    });
+    try {
+      const client = await freshClient();
+      const s = await client.status();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(s.browserModelAvailable).toBe(true);
+      expect(s.hint).toMatch(/USE IN-BROWSER MODEL/);
+      expect(s.hint).not.toMatch(/npm run/);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.stubGlobal("fetch", fetchMock);
+    }
+  });
+
   it("reports when the in-browser model is not an option (no WebGPU)", async () => {
     state.gpu = false;
     const client = await freshClient();

@@ -989,7 +989,7 @@ function Dashboard() {
             title="AI ANALYST"
             right={
               <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
-                LOCAL MODEL · RUNS ON THIS COMPUTER
+                LOCAL MODEL · RUNS ON THIS DEVICE
               </span>
             }
           />

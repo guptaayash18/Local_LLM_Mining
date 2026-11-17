@@ -18,9 +18,21 @@ export const LOCAL_AI_URL: string = (
 ).replace(/\/+$/, "");
 
 const PREFER_BROWSER_KEY = "strata-use-browser-model";
-const START_HINT =
+
+// On a phone the PC app is never at 127.0.0.1, and probing it can raise Chrome's local-network prompt.
+const onPhone = () =>
+  /Android|iPhone|iPad|Mobile/i.test(globalThis.navigator?.userAgent ?? "");
+
+const PC_HINT =
   `Start the HazardWatch app on this computer with "npm run start:with-pages" (Ollama must be running), ` +
   `then retry. It must listen on ${LOCAL_AI_URL}. Use Chrome or Edge; allow access to local network devices if the browser asks.`;
+const PHONE_HINT =
+  "Tap USE IN-BROWSER MODEL INSTEAD once. The model downloads to this phone (use Wi-Fi); after that the AI report works offline.";
+const startHint = () => (onPhone() ? PHONE_HINT : PC_HINT);
+const notRunning = () =>
+  onPhone()
+    ? "On this phone the AI analyst runs inside the app, after a one-time model download."
+    : `Local AI is not running: the HazardWatch app was not found at ${LOCAL_AI_URL}.`;
 
 // WebLLM is large; load it on first use so the dashboard appears immediately.
 let mod: Promise<typeof import("./webllm")> | null = null;
@@ -41,6 +53,7 @@ function preferBrowser(): boolean {
 let downloadAllowed = preferBrowser();
 
 async function localStatus(): Promise<AiStatus | null> {
+  if (onPhone()) return null;
   try {
     const res = await fetch(`${LOCAL_AI_URL}/api/local-ai/status`, {
       mode: "cors",
@@ -99,7 +112,7 @@ async function analyzeViaLocal(
       error: {
         code: "backend_unavailable",
         message: "Lost the connection to the local HazardWatch app.",
-        hint: START_HINT,
+        hint: startHint(),
       },
     };
   }
@@ -122,8 +135,8 @@ export const aiClient: AiClient = {
       installedModels: [],
       localBackendMissing: true,
       browserModelAvailable: gpu,
-      message: `Local AI is not running: the HazardWatch app was not found at ${LOCAL_AI_URL}.`,
-      hint: START_HINT,
+      message: notRunning(),
+      hint: startHint(),
     };
   },
   allowDownload: () => {
@@ -144,8 +157,10 @@ export const aiClient: AiClient = {
     if (!downloadAllowed) {
       const err = new LocalAiError(
         "backend_unavailable",
-        "Local AI is not running. The AI analyst needs the HazardWatch app running on this computer.",
-        START_HINT,
+        onPhone()
+          ? notRunning()
+          : "Local AI is not running. The AI analyst needs the HazardWatch app running on this computer.",
+        startHint(),
       );
       return {
         ok: false,
@@ -159,7 +174,7 @@ export const aiClient: AiClient = {
           code: "unsupported",
           message:
             "This browser cannot run the in-browser model (WebGPU is not available).",
-          hint: START_HINT,
+          hint: startHint(),
         },
       };
     }
