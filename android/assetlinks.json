@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.guptaayash18.hazardwatch",
+      "sha256_cert_fingerprints": [
+        "F2:A7:AB:28:BC:1E:1C:23:F3:3E:DB:C8:C8:E0:42:25:B0:33:11:E7:DD:0D:F8:3D:19:9D:4C:BF:B2:B3:27:2A"
+      ]
+    }
+  }
+]

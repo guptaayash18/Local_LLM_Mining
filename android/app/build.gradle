@@ -16,20 +16,12 @@ android {
         versionName "1.0"
     }
 
-    signingConfigs {
-        release {
-            // shortcut: the CI build makes a fresh key each run, so an update needs the old app uninstalled first; store a fixed key as a repo secret to allow in-place updates.
-            storeFile file(System.getenv("KEYSTORE_PATH") ?: "release.jks")
-            storePassword System.getenv("KEYSTORE_PASSWORD")
-            keyAlias "hazardwatch"
-            keyPassword System.getenv("KEYSTORE_PASSWORD")
-        }
-    }
-
+    // Built unsigned; signed afterwards with the fixed HazardWatch key, whose
+    // fingerprint is published in https://guptaayash18.github.io/.well-known/assetlinks.json
+    // so Android opens the app without an address bar.
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
         }
     }
 }

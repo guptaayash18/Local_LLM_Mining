@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# App signing keys never go in the repo
+*.jks
+*.keystore
