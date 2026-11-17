@@ -1,5 +1,5 @@
 # Builds the HazardWatch Android app (android/) and publishes HazardWatch.apk
-# unsigned on the "android-latest" release; the signed HazardWatch.apk is added after signing with the fixed key.
+# unsigned on the "android-latest" release. The installable HazardWatch.apk is signed separately with the fixed app key.
 name: Build Android app
 
 on:
@@ -38,4 +38,4 @@ jobs:
           gh release create android-latest HazardWatch-unsigned.apk \
             --target "${{ github.sha }}" \
             --title "HazardWatch Android app" \
-            --notes "Unsigned build. HazardWatch.apk (signed with the fixed app key) is added to this release after signing."
+            --notes "Unsigned build: it cannot be installed as is. The installable HazardWatch.apk is signed with the fixed app key (fingerprint in android/assetlinks.json) and shared separately."
