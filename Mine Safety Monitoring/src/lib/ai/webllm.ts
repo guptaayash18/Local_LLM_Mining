@@ -215,7 +215,7 @@ export class WebLlmProvider implements LocalInferenceProvider {
     };
     request.signal?.addEventListener("abort", onAbort, { once: true });
     let content: string;
-    try {
+    const complete = async (grammar: boolean) => {
       const reply = await e.chat.completions.create({
         messages: [
           { role: "system", content: request.system },
@@ -223,12 +223,30 @@ export class WebLlmProvider implements LocalInferenceProvider {
         ],
         temperature: TEMPERATURE,
         max_tokens: MAX_TOKENS,
-        response_format: {
-          type: "json_object",
-          schema: JSON.stringify(request.jsonSchema),
-        },
+        ...(grammar && {
+          response_format: {
+            type: "json_object" as const,
+            schema: JSON.stringify(request.jsonSchema),
+          },
+        }),
       });
-      content = reply.choices[0]?.message?.content ?? "";
+      return reply.choices[0]?.message?.content ?? "";
+    };
+    try {
+      try {
+        content = await complete(true);
+      } catch (error) {
+        // Some phone GPUs make WebLLM's JSON-grammar decoder reject a token.
+        // Retry once without the grammar; the JSON is parsed and checked below.
+        if (
+          request.signal?.aborted ||
+          !/grammar matcher/i.test(String((error as Error)?.message ?? error))
+        )
+          throw error;
+        await e.resetChat();
+        content = await complete(false);
+        content = content.match(/\{[\s\S]*\}/)?.[0] ?? content;
+      }
     } catch (error) {
       if (request.signal?.aborted)
         throw new LocalAiError("cancelled", "The analysis was cancelled.");
