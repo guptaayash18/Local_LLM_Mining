@@ -150,6 +150,22 @@ export async function runAnalysis(
     }
   }
 
+  // The model answered but never in a usable format (small phone models do
+  // this): show the code-written report instead of an error.
+  if (
+    !best &&
+    lastError instanceof LocalAiError &&
+    lastError.code === "bad_response"
+  ) {
+    const stub = normaliseInsights(
+      { headline: "-", summary: "-", notes: [], recommendations: [] },
+      profile,
+      planned,
+    );
+    if (stub)
+      best = { ...stub, summaryContradicted: true, safetyConflict: null };
+  }
+
   if (!best)
     return failResult(
       lastError ??

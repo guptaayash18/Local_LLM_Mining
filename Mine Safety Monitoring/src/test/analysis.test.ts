@@ -237,11 +237,11 @@ describe("runLocalAnalysis", () => {
     expect(res.ok && res.insights.summary).toContain("airflow_m3s fell 14.8%");
   });
 
-  it("retries once on malformed output, then reports bad_response", async () => {
+  it("retries once on malformed output, then uses the code-written report", async () => {
     const provider = fakeProvider([{ nope: 1 }, { nope: 2 }]);
     const res = await runLocalAnalysis(profile, { provider });
     expect(provider.calls).toHaveLength(2);
-    expect(!res.ok && res.error.code).toBe("bad_response");
+    expect(res.ok && res.meta.summarySource).toBe("code");
   });
 
   it("passes provider errors through as a structured error", async () => {

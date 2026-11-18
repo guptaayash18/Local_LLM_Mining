@@ -268,11 +268,11 @@ describe("malformed model output", () => {
     expect(res.ok && res.insights.safety).toMatchObject({ status: "UNSAFE" });
   });
 
-  it("returns a structured error, not a crash, for unusable JSON", async () => {
+  it("falls back to the code-written report for unusable JSON", async () => {
     const res = await runAnalysis(profileFor(1.5), {
       provider: fake(["not json", 42]),
     });
-    expect(!res.ok && res.error.code).toBe("bad_response");
+    expect(res.ok && res.insights.safety!.status).toBe("UNSAFE");
   });
 
   it("treats odd safety_status values as a review flag", async () => {
